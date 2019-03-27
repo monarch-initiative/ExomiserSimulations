@@ -3,29 +3,31 @@ package org.monarchinitiative.eselator.simulations.simulators;
 import htsjdk.variant.variantcontext.GenotypeType;
 import htsjdk.variant.variantcontext.VariantContext;
 import htsjdk.variant.vcf.VCFFileReader;
-import org.junit.Before;
-import org.junit.Test;
+import htsjdk.variant.vcf.VCFHeader;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.phenopackets.schema.v1.Phenopacket;
 import org.phenopackets.schema.v1.core.Individual;
 import org.phenopackets.schema.v1.core.Variant;
 import org.phenopackets.schema.v1.core.VcfAllele;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 
-import static org.hamcrest.CoreMatchers.is;
-import static org.junit.Assert.assertThat;
-import static org.junit.Assert.assertTrue;
+import static org.hamcrest.CoreMatchers.*;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.monarchinitiative.eselator.simulations.TestUtils.*;
 
-public class SingleVcfSimulatorTest {
+class SingleVcfSimulatorTest {
 
     private static final Path TEST_VCF_PATH = Paths.get(SingleVcfSimulatorTest.class.getResource("GIAB_NIST7035_3vars.vcf").getFile());
-
-    private static final String SAMPLE_ID = "NIST7035";
 
     private SingleVcfSimulator instance;
 
@@ -34,10 +36,17 @@ public class SingleVcfSimulatorTest {
      *
      * @return blah
      */
-    private static Phenopacket makePhenopacketWithHetVariant(Variant variant) {
+    private static Phenopacket makePhenopacketWithHetVariant(Variant variant, Individual subject) {
         return Phenopacket.newBuilder()
+                .setSubject(subject)
                 .addVariants(variant)
                 .setMetaData(getMetaData(getGenotypeOntologyResource()))
+                .build();
+    }
+
+    private static Individual individual(String individualId) {
+        return Individual.newBuilder()
+                .setId(individualId)
                 .build();
     }
 
@@ -80,15 +89,15 @@ public class SingleVcfSimulatorTest {
                 .build();
     }
 
-    @Before
-    public void setUp() throws Exception {
+    @BeforeEach
+    void setUp() throws Exception {
         instance = new SingleVcfSimulator(TEST_VCF_PATH);
     }
 
     @Test
-    public void initializationWorks() throws IOException {
-        Phenopacket packet = makePhenopacketWithHetVariant(hetVariant());
-        VariantContext expected = SingleVcfSimulator.phenopacketToVariantContexts(packet, SAMPLE_ID).get(0);
+    void initializationWorks() throws IOException {
+        Phenopacket packet = makePhenopacketWithHetVariant(hetVariant(), individual("ID"));
+        VariantContext expected = SingleVcfSimulator.phenopacketToVariantContexts(packet).get(0);
 
         Path path = instance.simulateVcfWithPhenopacket(packet);
         List<VariantContext> variants = new ArrayList<>();
@@ -105,8 +114,10 @@ public class SingleVcfSimulatorTest {
     }
 
     @Test
-    public void functionPhenopacketToHetVariantContextWorks() {
-        List<VariantContext> variantContexts = SingleVcfSimulator.phenopacketToVariantContexts(makePhenopacketWithHetVariant(hetVariant()), SAMPLE_ID);
+    void functionPhenopacketToHetVariantContextWorks() {
+        String jb = "JohnnyBravo";
+        List<VariantContext> variantContexts = SingleVcfSimulator.phenopacketToVariantContexts(
+                makePhenopacketWithHetVariant(hetVariant(), individual(jb)));
 
         assertThat(variantContexts.size(), is(1));
         VariantContext vc = variantContexts.get(0);
@@ -116,14 +127,16 @@ public class SingleVcfSimulatorTest {
         assertThat(vc.getAlleles().size(), is(2));
         assertThat(vc.getReference().getBaseString(), is("C"));
         assertThat(vc.getAlternateAllele(0).getBaseString(), is("T"));
-        assertTrue(vc.hasGenotype("NIST7035"));
-        assertThat(vc.getGenotype("NIST7035").getType(), is(GenotypeType.HET));
+        assertTrue(vc.hasGenotype(jb));
+        assertThat(vc.getGenotype(jb).getType(), is(GenotypeType.HET));
     }
 
 
     @Test
-    public void functionPhenopacketToHomaltVariantContextWorks() {
-        List<VariantContext> variantContexts = SingleVcfSimulator.phenopacketToVariantContexts(makePhenopacketWithHetVariant(homAltVariant()), SAMPLE_ID);
+    void functionPhenopacketToHomaltVariantContextWorks() {
+        String jb = "JohnnyBravo";
+        List<VariantContext> variantContexts = SingleVcfSimulator.phenopacketToVariantContexts(
+                makePhenopacketWithHetVariant(homAltVariant(), individual(jb)));
 
         assertThat(variantContexts.size(), is(1));
         VariantContext vc = variantContexts.get(0);
@@ -133,13 +146,15 @@ public class SingleVcfSimulatorTest {
         assertThat(vc.getAlleles().size(), is(2));
         assertThat(vc.getReference().getBaseString(), is("C"));
         assertThat(vc.getAlternateAllele(0).getBaseString(), is("T"));
-        assertTrue(vc.hasGenotype("NIST7035"));
-        assertThat(vc.getGenotype("NIST7035").getType(), is(GenotypeType.HOM_VAR));
+        assertTrue(vc.hasGenotype(jb));
+        assertThat(vc.getGenotype(jb).getType(), is(GenotypeType.HOM_VAR));
     }
 
     @Test
-    public void functionPhenopacketToHemizygousVariantContextWorks() {
-        List<VariantContext> variantContexts = SingleVcfSimulator.phenopacketToVariantContexts(makePhenopacketWithHetVariant(hemizygousVariant()), SAMPLE_ID);
+    void functionPhenopacketToHemizygousVariantContextWorks() {
+        String jb = "JohnnyBravo";
+        List<VariantContext> variantContexts = SingleVcfSimulator.phenopacketToVariantContexts(
+                makePhenopacketWithHetVariant(hemizygousVariant(), individual(jb)));
 
         assertThat(variantContexts.size(), is(1));
         VariantContext vc = variantContexts.get(0);
@@ -149,7 +164,26 @@ public class SingleVcfSimulatorTest {
         assertThat(vc.getAlleles().size(), is(2));
         assertThat(vc.getReference().getBaseString(), is("C"));
         assertThat(vc.getAlternateAllele(0).getBaseString(), is("T"));
-        assertTrue(vc.hasGenotype("NIST7035"));
-        assertThat(vc.getGenotype("NIST7035").getType(), is(GenotypeType.HOM_VAR));
+        assertTrue(vc.hasGenotype(jb));
+        assertThat(vc.getGenotype(jb).getType(), is(GenotypeType.HOM_VAR));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"Johnny", "Donna"})
+    void changingSampleIdInVcfHeaderWorks(String sampleName) {
+        final VCFHeader header;
+        try (VCFFileReader reader = new VCFFileReader(
+                new File(getClass().getResource("GIAB_NIST7035.vcf").getFile()), false)) {
+            header = reader.getFileHeader();
+        }
+        final ArrayList<String> names = header.getSampleNamesInOrder();
+        assertThat(names, hasItem("NIST7035"));
+
+
+        final VCFHeader vcfHeader = SingleVcfSimulator.updateHeaderWithPhenopacketSample(header, sampleName);
+
+        final ArrayList<String> updatedNames = vcfHeader.getSampleNamesInOrder();
+        assertThat(updatedNames.size(), is(1));
+        assertThat(updatedNames, hasItem(sampleName));
     }
 }

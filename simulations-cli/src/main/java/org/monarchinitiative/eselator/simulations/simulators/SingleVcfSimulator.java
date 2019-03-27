@@ -47,7 +47,7 @@ public class SingleVcfSimulator implements VcfSimulator {
     }
 
 
-    static List<VariantContext> phenopacketToVariantContexts(Phenopacket phenopacket, String sampleId) {
+    static List<VariantContext> phenopacketToVariantContexts(Phenopacket phenopacket) {
         List<VariantContext> variants = new ArrayList<>();
         for (Variant variant : phenopacket.getVariantsList()) {
 
@@ -64,7 +64,7 @@ public class SingleVcfSimulator implements VcfSimulator {
 
             OntologyClass genotype = variant.getGenotype();
             GenotypeBuilder genotypeBuilder = new GenotypeBuilder()
-                    .name(sampleId);
+                    .name(phenopacket.getSubject().getId());
 
             if (genotype.equals(HET)) {
                 // 1x REF + 1x ALT
@@ -93,7 +93,7 @@ public class SingleVcfSimulator implements VcfSimulator {
 
 
             VariantContext vc = new VariantContextBuilder()
-                    .chr("chr" + vcfAllele.getChr())
+                    .chr(vcfAllele.getChr().startsWith("chr") ? vcfAllele.getChr() : "chr" + vcfAllele.getChr())
                     .start(vcfAllele.getPos())
                     .computeEndFromAlleles(allAlleles, vcfAllele.getPos())
                     .alleles(allAlleles)
@@ -121,15 +121,19 @@ public class SingleVcfSimulator implements VcfSimulator {
         try (reader; writer) {
             LOGGER.info("Reading file {}", templateVcfPath);
             VCFHeader fileHeader = reader.getFileHeader();
+            fileHeader = updateHeaderWithPhenopacketSample(fileHeader, phenopacket.getSubject().getId());
             writer.writeHeader(fileHeader);
 
-            ArrayList<String> samples = fileHeader.getSampleNamesInOrder();
-            List<VariantContext> injected = phenopacketToVariantContexts(phenopacket, samples.get(0));
+            List<VariantContext> injected = phenopacketToVariantContexts(phenopacket);
 
            Stream.concat(reader.iterator().stream(), injected.stream())
                     .sorted(new VariantContextComparator(fileHeader.getContigLines()))
                     .forEach(writer::add);
         }
         return outPath.toPath();
+    }
+
+    static VCFHeader updateHeaderWithPhenopacketSample(VCFHeader original, String sampleId) {
+        return new VCFHeader(original.getMetaDataInSortedOrder(), Collections.singleton(sampleId));
     }
 }
