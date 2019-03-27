@@ -1,8 +1,9 @@
 package org.monarchinitiative.eselator.simulations.app;
 
-import org.monarchinitiative.exomiser.autoconfigure.EnableExomiser;
 
-@EnableExomiser
+import org.springframework.context.annotation.Configuration;
+
+@Configuration
 public class SimulationsConfig {
 
 }
