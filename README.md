@@ -4,11 +4,6 @@ This repo contains code for running simulations using Exomiser version enriched 
 
 Simulated exome VCF file is being created in a naive way at the moment. A single VCF file with variants is required and the variants from `Phenopacket` are spiked in between the variants.
 
-## Set up
-You need to follow a few steps before you can run the app:
-- get and unzip the resource archive - ~35GB ZIP archive containing genome, phenotype, and spliding databases, fasta files, ... 
-- update `exomiser.data-directory` inside the *splicing-exomiser-application.properties* file to point to the resource directory
-
 ## Inject phenopacket variants & phenotype into VCF file and run Exomiser analysis 
 
 ### Command line
