@@ -1,4 +1,4 @@
-package org.monarchinitiative.eselator.simulations.simulators;
+package org.monarchinitiative.eselator.simulations.cli;
 
 import htsjdk.variant.variantcontext.*;
 import htsjdk.variant.variantcontext.writer.Options;
@@ -17,8 +17,11 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.UnaryOperator;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
@@ -47,15 +50,28 @@ public class SingleVcfSimulator implements VcfSimulator {
     }
 
 
+    /**
+     * Map {@link Phenopacket} to {@link VariantContext}s. Genotypes in variant contexts are modified so that they
+     * will contain phenopacket subject's id.
+     */
     static List<VariantContext> phenopacketToVariantContexts(Phenopacket phenopacket) {
         List<VariantContext> variants = new ArrayList<>();
+        final String subjectId = phenopacket.getSubject().getId();
         for (Variant variant : phenopacket.getVariantsList()) {
 
-            VcfAllele vcfAllele = variant.getVcfAllele();
-            if (!vcfAllele.isInitialized()) { // VcfAllele is oneof filed, thus not always present
-                LOGGER.warn("VcfAllele is not present in variant {}", variant);
-                continue;
+            switch (variant.getAlleleCase()) {
+                case ALLELE_NOT_SET:
+                case SPDI_ALLELE:
+                case ISCN_ALLELE:
+                case HGVS_ALLELE:
+                default:
+                    LOGGER.warn("Variant data are not stored in VCF format, but as {}", variant.getAlleleCase());
+                    continue;
+                case VCF_ALLELE:
+                    // continue execution
             }
+
+            final VcfAllele vcfAllele = variant.getVcfAllele();
 
             // here the ref allele is always at 0, alt is at idx 1
             List<Allele> allAlleles = new ArrayList<>(2);
@@ -64,7 +80,7 @@ public class SingleVcfSimulator implements VcfSimulator {
 
             OntologyClass genotype = variant.getGenotype();
             GenotypeBuilder genotypeBuilder = new GenotypeBuilder()
-                    .name(phenopacket.getSubject().getId());
+                    .name(subjectId);
 
             if (genotype.equals(HET)) {
                 // 1x REF + 1x ALT
@@ -91,8 +107,8 @@ public class SingleVcfSimulator implements VcfSimulator {
                 }
             }
 
-
             VariantContext vc = new VariantContextBuilder()
+                    // we are working with hg19 usually. Contigs are prepended with 'chr' there
                     .chr(vcfAllele.getChr().startsWith("chr") ? vcfAllele.getChr() : "chr" + vcfAllele.getChr())
                     .start(vcfAllele.getPos())
                     .computeEndFromAlleles(allAlleles, vcfAllele.getPos())
@@ -107,18 +123,36 @@ public class SingleVcfSimulator implements VcfSimulator {
         return variants;
     }
 
+    static VCFHeader updateHeaderWithPhenopacketSample(VCFHeader original, String sampleId) {
+        return new VCFHeader(original.getMetaDataInSortedOrder(), Collections.singleton(sampleId));
+    }
+
+    static UnaryOperator<VariantContext> changeSampleNameInGenotypes(final String sampleId) {
+        return vc -> {
+            final VariantContextBuilder vcb = new VariantContextBuilder(vc)
+                    .noGenotypes() // remove present genotypes and then add updated
+                    .genotypes(vc.getGenotypes().stream()
+                            .map(gt -> new GenotypeBuilder(gt).name(sampleId).make()) // change sample Id on individual genotypes
+                            .collect(Collectors.toList()));
+
+            return vcb.make();
+        };
+    }
+
     @Override
     public Path simulateVcfWithPhenopacket(Phenopacket phenopacket) throws IOException {
-        File outPath = File.createTempFile("single-vcf-simulator-", ".vcf");
+
+        final String sampleId = phenopacket.getSubject().getId();
+        // we create a temporary VCF file for Exomiser analysis
+        final File outPath = File.createTempFile("single-vcf-simulator-" + sampleId + "-", ".vcf");
         outPath.deleteOnExit();
 
-        VCFFileReader reader = new VCFFileReader(templateVcfPath, false);
-        VariantContextWriter writer = new VariantContextWriterBuilder()
-                .setOutputFile(outPath)
-                .setOutputFileType(VariantContextWriterBuilder.OutputType.VCF)
-                .unsetOption(Options.INDEX_ON_THE_FLY)
-                .build();
-        try (reader; writer) {
+        try (VCFFileReader reader = new VCFFileReader(templateVcfPath, false);
+             VariantContextWriter writer = new VariantContextWriterBuilder()
+                     .setOutputFile(outPath)
+                     .setOutputFileType(VariantContextWriterBuilder.OutputType.VCF)
+                     .unsetOption(Options.INDEX_ON_THE_FLY)
+                     .build()) {
             LOGGER.info("Reading file {}", templateVcfPath);
             VCFHeader fileHeader = reader.getFileHeader();
             fileHeader = updateHeaderWithPhenopacketSample(fileHeader, phenopacket.getSubject().getId());
@@ -126,14 +160,14 @@ public class SingleVcfSimulator implements VcfSimulator {
 
             List<VariantContext> injected = phenopacketToVariantContexts(phenopacket);
 
-           Stream.concat(reader.iterator().stream(), injected.stream())
+            AtomicInteger cnt = new AtomicInteger();
+            Stream.concat(reader.iterator().stream(), injected.stream())
+                    .map(changeSampleNameInGenotypes(sampleId))
                     .sorted(new VariantContextComparator(fileHeader.getContigLines()))
+                    .peek(vc -> cnt.incrementAndGet())
                     .forEach(writer::add);
+            LOGGER.info("Created VCF containing {} variants", cnt.get());
         }
         return outPath.toPath();
-    }
-
-    static VCFHeader updateHeaderWithPhenopacketSample(VCFHeader original, String sampleId) {
-        return new VCFHeader(original.getMetaDataInSortedOrder(), Collections.singleton(sampleId));
     }
 }

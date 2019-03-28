@@ -1,4 +1,4 @@
-package org.monarchinitiative.eselator.simulations.simulators;
+package org.monarchinitiative.eselator.simulations.cli;
 
 import htsjdk.variant.variantcontext.GenotypeType;
 import htsjdk.variant.variantcontext.VariantContext;
@@ -20,10 +20,11 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 
-import static org.hamcrest.CoreMatchers.*;
+import static org.hamcrest.CoreMatchers.hasItem;
+import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.monarchinitiative.eselator.simulations.TestUtils.*;
+import static org.monarchinitiative.eselator.simulations.cli.TestExamples.*;
 
 class SingleVcfSimulatorTest {
 
@@ -104,7 +105,7 @@ class SingleVcfSimulatorTest {
         try (VCFFileReader reader = new VCFFileReader(path.toFile(), false)) {
             variants.addAll(reader.iterator().toList());
         }
-        // TODO - continue here
+
         assertThat(variants.size(), is(4));
         assertTrue(variants.stream().anyMatch(vc -> vc.getContig().equals(expected.getContig())
                 && vc.getStart() == 787400

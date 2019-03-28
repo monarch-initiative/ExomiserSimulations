@@ -1,4 +1,4 @@
-package org.monarchinitiative.eselator.simulations;
+package org.monarchinitiative.eselator.simulations.cli;
 
 import com.google.protobuf.Timestamp;
 import org.phenopackets.schema.v1.core.MetaData;
@@ -9,7 +9,7 @@ import java.time.Instant;
 import java.util.Arrays;
 import java.util.stream.Collectors;
 
-public class TestUtils {
+public class TestExamples {
 
     public static final OntologyClass HOMO_SAPIENS = ontologyClass("NCBITaxon:9606", "Homo sapiens");
 
