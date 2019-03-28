@@ -29,4 +29,5 @@ There are some hardcoded constraints present at the moment:
 - only runs with *RefSeq* transcripts and *hg19* genome assembly
 - only single sample analysis is supported
 - only one *naive* exome simulation method is available at the moment
-- exomiser version with splicing code (`11.0.0-SP-1`) must be installed in your local Maven repo in order to compile & run the app
+- Exomiser version with splicing code (`11.0.0-SP-1`) must be installed in your local Maven repo in order to compile & run the app
+- no information regarding expected mode of inheritance is extracted from the `Phenopacket` 
