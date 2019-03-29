@@ -6,24 +6,19 @@ Simulated exome VCF file is being created in a naive way at the moment. A single
 
 ## Inject phenopacket variants & phenotype into VCF file and run Exomiser analysis 
 
-### Command line
-Provide path to phenopacket, VCF file with variants, and file prefix where the results will be written:
+**Command line arguments:**
+- `--single-vcf-simulation` - flag required to run the command
+- `--exomiser.data-directory` - path to Exomiser data bundle
+- `--pp` - path to Phenopacket in JSON format
+- `--vcf` - path to VCF file with variants, where variants from Phenopacket will be spiked in
+- `--output` - prefix of the Exomiser result files
 
+Example run:
 ```bash
-java -jar simulations-cli-0.1.0.jar --exomiser.data-directory=/path/to/exomiser-data/directory --pp=/path/to/phenopacket.json --vcf=/path/to/vcf --output=/path/to/output
+java -jar simulations-cli-0.1.0.jar --single-vcf-simulation --exomiser.data-directory=/path/to/exomiser-data/directory --pp=/path/to/phenopacket.json --vcf=/path/to/vcf --output=/path/to/output
 ```
-> **Note:** 
-  - this repo uses Exomiser with splicing code at the moment, so `--exomiser.data-directory` must point to exomiser data bundle where the splicing files are present as well.
-  - `--pp` must point to a `Phenopacket` containing a single individual. Familial analysis is not supported at the moment. Only **present** (not negated) `Phenotype`s are injected into Exomiser analysis.
-  - `--output` is supposed to be a file prefix, result files will be created for all supported inheritance modes and output types (TSV, VCF, HTML, ...)
 
-### IntelliJ
-The above analysis can also be run within IntelliJ. You just have to create a run configuration:
-- find class `org.monarchinitiative.eselator.simulations.Play` and add it into the run configurations by clicking on the green triangle next to the class name
-- open the newly created configuration and add the following into *Program arguments* field: `--exomiser.data-directory=/path/to/exomiser-data/directory --pp=/path/to/phenopacket.json --vcf=/path/to/vcf --output=/path/to/output`
-- hit the *Run* button and hope for the best :)
-
-## Limitations
+**Limitations:**
 There are some hardcoded constraints present at the moment:
 
 - only runs with *RefSeq* transcripts and *hg19* genome assembly
@@ -31,3 +26,21 @@ There are some hardcoded constraints present at the moment:
 - only one *naive* exome simulation method is available at the moment
 - Exomiser version with splicing code (`11.0.0-SP-1`) must be installed in your local Maven repo in order to compile & run the app
 - no information regarding expected mode of inheritance is extracted from the `Phenopacket` 
+
+## Run splice scorer
+
+**Command line arguments:**
+- `--splice-scorer` - flag required to run the command
+- `--exomiser.data-directory` - path to Exomiser data bundle
+- `--pp` - path to Phenopacket JSON file. REQUIRED, may be repeated
+- `--output` - path where result file will be written. REQUIRED
+- `--strategy` - choose from `{sigmoid, advanced}`
+
+Example run:
+```bash
+java -jar simulations-cli-0.1.0.jar --splice-scorer --exomiser.data-directory=/path/to/exomiser-data/directory --pp=/path/to/first_phenopacket.json --pp=/path/to/second_phenopacket.json --output=/path/to/output_file --strategy=advanced
+```
+
+**Limitations:**
+
+None at the moment.

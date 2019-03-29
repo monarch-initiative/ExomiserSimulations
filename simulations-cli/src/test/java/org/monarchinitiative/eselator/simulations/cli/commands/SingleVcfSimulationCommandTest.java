@@ -1,4 +1,4 @@
-package org.monarchinitiative.eselator.simulations.cli;
+package org.monarchinitiative.eselator.simulations.cli.commands;
 
 import org.junit.jupiter.api.Test;
 import org.phenopackets.schema.v1.Phenopacket;
@@ -10,7 +10,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.CoreMatchers.*;
 import static org.monarchinitiative.eselator.simulations.cli.TestExamples.ontologyClass;
 
-class SimulationsRunnerTest {
+class SingleVcfSimulationCommandTest {
 
 
     @Test
@@ -21,7 +21,7 @@ class SimulationsRunnerTest {
                 .addPhenotypes(Phenotype.newBuilder().setType(ontologyClass("HP:0003357", "Thymic hormone decreased")).setNegated(true).build())
                 .build();
 
-        final List<String> hpos = SimulationsRunner.getPresentPhenotypesAsHpoStrings(pp);
+        final List<String> hpos = SingleVcfSimulationCommand.getPresentPhenotypesAsHpoStrings(pp);
 
         assertThat(hpos.size(), is(2));
         assertThat(hpos, hasItems("HP:0000252", "HP:0001382"));

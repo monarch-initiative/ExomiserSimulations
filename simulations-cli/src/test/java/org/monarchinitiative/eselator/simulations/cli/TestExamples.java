@@ -1,9 +1,8 @@
 package org.monarchinitiative.eselator.simulations.cli;
 
 import com.google.protobuf.Timestamp;
-import org.phenopackets.schema.v1.core.MetaData;
-import org.phenopackets.schema.v1.core.OntologyClass;
-import org.phenopackets.schema.v1.core.Resource;
+import org.phenopackets.schema.v1.Phenopacket;
+import org.phenopackets.schema.v1.core.*;
 
 import java.time.Instant;
 import java.util.Arrays;
@@ -88,6 +87,64 @@ public class TestExamples {
                 .setIriPrefix("http://purl.obolibrary.org/obo/HP_")
                 .setUrl("http://purl.obolibrary.org/obo/hp.owl")
                 .setVersion("2018-03-08")
+                .build();
+    }
+
+    /**
+     * Make Phenopacket for sample <code>NIST7035</code> - <code>chr1:787400C>T HET AC=2;AF=1.00;AN=2;DP=2;FS=0.000;MLEAC=2;MLEAF=1.00;MQ=60.00;MQ0=0;QD=32.08</code>
+     *
+     * @return blah
+     */
+    public static Phenopacket makePhenopacketWithHetVariant(Variant variant, Individual subject) {
+        return Phenopacket.newBuilder()
+                .setSubject(subject)
+                .addVariants(variant)
+                .setMetaData(getMetaData(getGenotypeOntologyResource()))
+                .build();
+    }
+
+    public static Individual individual(String individualId) {
+        return Individual.newBuilder()
+                .setId(individualId)
+                .build();
+    }
+
+    public static Variant hetVariant() {
+        return Variant.newBuilder()
+                .setVcfAllele(VcfAllele.newBuilder()
+                        .setChr("chr1")
+                        .setPos(787400)
+                        .setRef("C")
+                        .setAlt("T")
+                        .setInfo("AC=2;AF=1.00;AN=2;DP=2;FS=0.000;MLEAC=2;MLEAF=1.00;MQ=60.00;MQ0=0;QD=32.08")
+                        .build())
+                .setGenotype(HET)
+                .build();
+    }
+
+    public static Variant homAltVariant() {
+        return Variant.newBuilder()
+                .setVcfAllele(VcfAllele.newBuilder()
+                        .setChr("chr1")
+                        .setPos(787400)
+                        .setRef("C")
+                        .setAlt("T")
+                        .setInfo("AC=2;AF=1.00;AN=2;DP=2;FS=0.000;MLEAC=2;MLEAF=1.00;MQ=60.00;MQ0=0;QD=32.08")
+                        .build())
+                .setGenotype(HOM_ALT)
+                .build();
+    }
+
+    public static Variant hemizygousVariant() {
+        return Variant.newBuilder()
+                .setVcfAllele(VcfAllele.newBuilder()
+                        .setChr("chr1")
+                        .setPos(787400)
+                        .setRef("C")
+                        .setAlt("T")
+                        .setInfo("AC=2;AF=1.00;AN=2;DP=2;FS=0.000;MLEAC=2;MLEAF=1.00;MQ=60.00;MQ0=0;QD=32.08")
+                        .build())
+                .setGenotype(HEMIZYGOUS)
                 .build();
     }
 }

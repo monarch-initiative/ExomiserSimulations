@@ -1,4 +1,4 @@
-package org.monarchinitiative.eselator.simulations.cli;
+package org.monarchinitiative.eselator.simulations.cli.simulators;
 
 import org.phenopackets.schema.v1.Phenopacket;
 
