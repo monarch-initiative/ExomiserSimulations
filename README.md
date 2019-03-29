@@ -15,7 +15,7 @@ Simulated exome VCF file is being created in a naive way at the moment. A single
 
 Example run:
 ```bash
-java -jar simulations-cli-0.1.0.jar --single-vcf-simulation --exomiser.data-directory=/path/to/exomiser-data/directory --pp=/path/to/phenopacket.json --vcf=/path/to/vcf --output=/path/to/output
+java -jar simulations-cli-0.2.0.jar --single-vcf-simulation --exomiser.data-directory=/path/to/exomiser-data/directory --pp=/path/to/phenopacket.json --vcf=/path/to/vcf --output=/path/to/output
 ```
 
 **Limitations:**
@@ -38,7 +38,7 @@ There are some hardcoded constraints present at the moment:
 
 Example run:
 ```bash
-java -jar simulations-cli-0.1.0.jar --splice-scorer --exomiser.data-directory=/path/to/exomiser-data/directory --pp=/path/to/first_phenopacket.json --pp=/path/to/second_phenopacket.json --output=/path/to/output_file --strategy=advanced
+java -jar simulations-cli-0.2.0.jar --splice-scorer --exomiser.data-directory=/path/to/exomiser-data/directory --pp=/path/to/first_phenopacket.json --pp=/path/to/second_phenopacket.json --output=/path/to/output_file --strategy=advanced
 ```
 
 **Limitations:**
