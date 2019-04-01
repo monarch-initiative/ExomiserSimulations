@@ -2,14 +2,15 @@ package org.monarchinitiative.eselator.simulations.cli.commands;
 
 import de.charite.compbio.jannovar.data.JannovarData;
 import org.apache.commons.csv.CSVFormat;
-import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVPrinter;
 import org.monarchinitiative.eselator.simulations.cli.CustomVariantEvaluation;
 import org.monarchinitiative.eselator.simulations.cli.Utils;
 import org.monarchinitiative.exomiser.core.genome.GenomeAnalysisService;
+import org.monarchinitiative.exomiser.core.genome.VariantAnnotator;
 import org.monarchinitiative.exomiser.core.genome.dao.splicing.SpliceScorer;
 import org.monarchinitiative.exomiser.core.genome.dao.splicing.SplicingContext;
 import org.monarchinitiative.exomiser.core.genome.dao.splicing.SplicingDao;
+import org.monarchinitiative.exomiser.core.model.VariantAnnotation;
 import org.monarchinitiative.exomiser.core.model.VariantEvaluation;
 import org.phenopackets.schema.v1.Phenopacket;
 import org.phenopackets.schema.v1.core.Variant;
@@ -20,13 +21,16 @@ import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.stereotype.Component;
 
-import java.io.BufferedWriter;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Component
 public class SpliceScorerCommand implements ApplicationRunner {
@@ -38,6 +42,8 @@ public class SpliceScorerCommand implements ApplicationRunner {
 
     private final GenomeAnalysisService genomeAnalysisService;
 
+    private final VariantAnnotator variantAnnotator;
+
     private final JannovarData jannovarData;
 
     private final SplicingDao splicingDao;
@@ -48,13 +54,51 @@ public class SpliceScorerCommand implements ApplicationRunner {
 
     private String strategy;
 
-    public SpliceScorerCommand(GenomeAnalysisService genomeAnalysisService, JannovarData jannovarData, SplicingDao splicingDao) {
+    public SpliceScorerCommand(GenomeAnalysisService genomeAnalysisService, VariantAnnotator variantAnnotator, JannovarData jannovarData, SplicingDao splicingDao) {
         this.genomeAnalysisService = genomeAnalysisService;
+        this.variantAnnotator = variantAnnotator;
         this.jannovarData = jannovarData;
         this.splicingDao = splicingDao;
         this.phenopacketPaths = new ArrayList<>();
     }
 
+    /**
+     * @return function for splitting input string such as <code>key=value</code> into an <code>['key', 'value']</code>
+     * array. The function is guaranteed to return array with at least 2 fields. For string <code>key=</code>, the array
+     * will look like <code>['key', '']</code>
+     */
+    private static Function<String, String[]> decodeInfoField() {
+        return s -> {
+            if (s.contains("=")) {
+                return s.split("=", 2);
+            } else {
+                return new String[]{s, ""};
+            }
+        };
+    }
+
+    private static Object[] makeRecordRepresentation(CustomVariantEvaluation cve, Map<String, String> fields) {
+        VariantEvaluation ve = cve.getVariantEvaluation();
+        return new Object[]{
+                // PP_ID
+                cve.getPhenopacket().getId(),
+                // VARIANT
+                String.format("%s:%d%s>%s", ve.getChromosomeName(), ve.getPosition(), ve.getRef(), ve.getAlt()),
+                // VCLASS
+                fields.get("VCLASS"),
+                // PATHOMECHANISM
+                fields.get("PATHOMECHANISM"),
+                // CONSEQUENCE
+                fields.get("CONSEQUENCE"),
+                // DONOR
+                cve.getDonorScore(),
+                // ACCEPTOR
+                cve.getAcceptorScore(),
+                // EXON
+                cve.getExonScore(),
+                // INTRON
+                cve.getIntronScore()};
+    }
 
     @Override
     public void run(ApplicationArguments args) throws Exception {
@@ -90,8 +134,9 @@ public class SpliceScorerCommand implements ApplicationRunner {
         }
         LOGGER.info("Read {} phenopackets", ppList.size());
 
-        // ----------------- MAP PHENOPACKETS TO CUSTOM VARIANT EVALUATIONS ---
+        // ----------------- SCORE VARIANTS -----------------------------------
         LOGGER.info("Scoring variants");
+        // map to custom variant evaluations first
         List<CustomVariantEvaluation> cveList = new ArrayList<>();
         for (Phenopacket pp : ppList) {
             for (Variant pv : pp.getVariantsList()) {
@@ -106,17 +151,21 @@ public class SpliceScorerCommand implements ApplicationRunner {
                     case VCF_ALLELE:
                         VcfAllele va = pv.getVcfAllele();
                         Integer chr = jannovarData.getRefDict().getContigNameToID().get(va.getChr());
-                        VariantEvaluation ve = VariantEvaluation.builder(chr, va.getPos(), va.getRef(), va.getAlt()).build();
+                        VariantAnnotation annotation = variantAnnotator.annotate(va.getChr(), va.getPos(), va.getRef(), va.getAlt());
+                        VariantEvaluation ve = VariantEvaluation.builder(chr, va.getPos(), va.getRef(), va.getAlt())
+                                .annotations(annotation.getTranscriptAnnotations())
+                                .build();
+
                         SplicingContext sctx = splicingDao.buildSplicingContext(ve);
                         CustomVariantEvaluation cv = CustomVariantEvaluation.builder()
                                 .setPhenopacket(pp)
                                 .setVariantEvaluation(ve)
+                                .setVcfAlleleInfoField(va.getInfo())
                                 .setDonorScore(scorer.pathogenicityForDonor(sctx))
                                 .setAcceptorScore(scorer.pathogenicityForAcceptor(sctx))
                                 .setIntronScore(scorer.pathogenicityForIntron(sctx))
                                 .setExonScore(scorer.pathogenicityForExon(sctx))
                                 .build();
-
                         cveList.add(cv);
                 }
             }
@@ -125,17 +174,17 @@ public class SpliceScorerCommand implements ApplicationRunner {
         // ----------------- WRITE CUSTOM VARIANT EVALUATIONS TO FILE ---------
         try (CSVPrinter printer = new CSVPrinter(Files.newBufferedWriter(outputPath),
                 CSVFormat.TDF
-                        .withHeader("PP_ID", "VARIANT", "DONOR", "ACCEPTOR", "EXON", "INTRON"))) {
+                        .withHeader("PP_ID", "VARIANT", "VCLASS", "PATHOMECHANISM", "CONSEQUENCE", "DONOR", "ACCEPTOR", "EXON", "INTRON"))) {
 
             for (CustomVariantEvaluation cve : cveList) {
-                printer.printRecord(
-                        cve.getPhenopacket().getId(), // PP_ID
-                        cve.getVariantEvaluation(), // VARIANT
-                        cve.getDonorScore(), // DONOR
-                        cve.getAcceptorScore(), // ACCEPTOR
-                        cve.getExonScore(), // EXON
-                        cve.getIntronScore() // INTRON
-                        );
+                // Decode INFO string:
+                // token[0] = id (e.g. VCLASS), token[1] = value (e.g. coding)
+                Map<String, String> variantInfoFields = Arrays.stream(cve.getVcfAlleleInfoField().split(";"))
+                        .map(decodeInfoField())
+                        .collect(Collectors.toMap(s -> s[0], s -> s[1]));
+
+                // write the variant
+                printer.printRecord(makeRecordRepresentation(cve, variantInfoFields));
             }
         }
         LOGGER.info("Wrote {} variants", cveList.size());

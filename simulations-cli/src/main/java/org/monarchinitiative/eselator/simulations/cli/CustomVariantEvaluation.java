@@ -7,6 +7,8 @@ public class CustomVariantEvaluation {
 
     private final VariantEvaluation variantEvaluation;
 
+    private final String vcfAlleleInfoField;
+
     private final Phenopacket phenopacket;
 
     private final double donorScore, acceptorScore, intronScore, exonScore;
@@ -18,10 +20,15 @@ public class CustomVariantEvaluation {
         this.acceptorScore = builder.acceptorScore;
         this.intronScore = builder.intronScore;
         this.exonScore = builder.exonScore;
+        this.vcfAlleleInfoField = builder.vcfAlleleInfoField;
     }
 
     public static Builder builder() {
         return new Builder();
+    }
+
+    public String getVcfAlleleInfoField() {
+        return vcfAlleleInfoField;
     }
 
     public VariantEvaluation getVariantEvaluation() {
@@ -56,8 +63,15 @@ public class CustomVariantEvaluation {
 
         private double donorScore, acceptorScore, intronScore, exonScore;
 
+        private String vcfAlleleInfoField;
+
         private Builder() {
 
+        }
+
+        public Builder setVcfAlleleInfoField(String vcfAlleleInfoField) {
+            this.vcfAlleleInfoField = vcfAlleleInfoField;
+            return this;
         }
 
         public Builder setDonorScore(double donorScore) {
