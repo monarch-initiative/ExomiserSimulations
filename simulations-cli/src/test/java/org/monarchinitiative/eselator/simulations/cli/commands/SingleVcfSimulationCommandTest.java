@@ -18,7 +18,7 @@ class SingleVcfSimulationCommandTest {
         final Phenopacket pp = Phenopacket.newBuilder()
                 .addPhenotypes(Phenotype.newBuilder().setType(ontologyClass("HP:0000252", "Microcephaly")).build())
                 .addPhenotypes(Phenotype.newBuilder().setType(ontologyClass("HP:0001382", "Joint hypermobility")).build())
-                .addPhenotypes(Phenotype.newBuilder().setType(ontologyClass("HP:0003357", "Thymic hormone decreased")).setNegated(true).build())
+                .addPhenotypes(Phenotype.newBuilder().setType(ontologyClass("HP:0003357", "Thymic hormone decreased")).setAbsent(true).build())
                 .build();
 
         final List<String> hpos = SingleVcfSimulationCommand.getPresentPhenotypesAsHpoStrings(pp);

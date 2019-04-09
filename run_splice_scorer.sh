@@ -18,9 +18,6 @@ EXOMISER_DATADIR=""
 # output file path
 OUT_FILE=""
 
-# strategy - advanced by default
-STRATEGY="advanced"
-
 ### ----------------------------------------------------------------- ###
 
 check () {
@@ -54,7 +51,7 @@ for F in ${PP_FILES}; do
 done
 
 # now we have everything to run the app
-COMMAND="java -jar ${JAR_PATH} --splice-scorer --exomiser.data-directory=${EXOMISER_DATADIR} --strategy=${STRATEGY} --output=${OUT_FILE} ${PP_CLI}"
+COMMAND="java -jar ${JAR_PATH} --splice-scorer --exomiser.data-directory=${EXOMISER_DATADIR} --output=${OUT_FILE} ${PP_CLI}"
 
 echo "Running '${COMMAND}'"
 $COMMAND
@@ -68,7 +65,6 @@ USAGE:
     --exomiser-dir     path to directory with Exomiser resources
     --pp-dir           path to directory with phenopackets in JSON format
     --out-file         where to write the results
-    --strategy         scoring strategy [advanced] {sigmoid,advanced}
     -h | --help        print this message\n\n"
 }
 
@@ -82,7 +78,6 @@ else
       --exomiser-dir ) shift; EXOMISER_DATADIR=$1;;
       --pp-dir ) shift; PP_DIR=$1;;
       --out-file ) shift; OUT_FILE=$1;;
-      --strategy ) shift; STRATEGY=$1;;
       -h | --help ) usage; exit 0;;
       *) printf "Unknown parameter: \"$1\"\n"; usage; exit 1;;
     esac

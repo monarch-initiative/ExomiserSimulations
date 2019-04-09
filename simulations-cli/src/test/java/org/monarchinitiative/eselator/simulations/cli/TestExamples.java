@@ -118,7 +118,7 @@ public class TestExamples {
                         .setAlt("T")
                         .setInfo("AC=2;AF=1.00;AN=2;DP=2;FS=0.000;MLEAC=2;MLEAF=1.00;MQ=60.00;MQ0=0;QD=32.08")
                         .build())
-                .setGenotype(HET)
+                .setZygosity(HET)
                 .build();
     }
 
@@ -131,7 +131,7 @@ public class TestExamples {
                         .setAlt("T")
                         .setInfo("AC=2;AF=1.00;AN=2;DP=2;FS=0.000;MLEAC=2;MLEAF=1.00;MQ=60.00;MQ0=0;QD=32.08")
                         .build())
-                .setGenotype(HOM_ALT)
+                .setZygosity(HOM_ALT)
                 .build();
     }
 
@@ -144,7 +144,7 @@ public class TestExamples {
                         .setAlt("T")
                         .setInfo("AC=2;AF=1.00;AN=2;DP=2;FS=0.000;MLEAC=2;MLEAF=1.00;MQ=60.00;MQ0=0;QD=32.08")
                         .build())
-                .setGenotype(HEMIZYGOUS)
+                .setZygosity(HEMIZYGOUS)
                 .build();
     }
 }

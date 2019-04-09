@@ -1,7 +1,11 @@
 package org.monarchinitiative.eselator.simulations.cli;
 
+import com.google.common.collect.ImmutableMap;
 import org.monarchinitiative.exomiser.core.model.VariantEvaluation;
 import org.phenopackets.schema.v1.Phenopacket;
+
+import java.util.HashMap;
+import java.util.Map;
 
 public class CustomVariantEvaluation {
 
@@ -11,20 +15,21 @@ public class CustomVariantEvaluation {
 
     private final Phenopacket phenopacket;
 
-    private final double donorScore, acceptorScore, intronScore, exonScore;
+    private final ImmutableMap<String, Double> scoreMap;
 
     private CustomVariantEvaluation(Builder builder) {
         this.variantEvaluation = builder.variantEvaluation;
         this.phenopacket = builder.phenopacket;
-        this.donorScore = builder.donorScore;
-        this.acceptorScore = builder.acceptorScore;
-        this.intronScore = builder.intronScore;
-        this.exonScore = builder.exonScore;
         this.vcfAlleleInfoField = builder.vcfAlleleInfoField;
+        this.scoreMap = ImmutableMap.copyOf(builder.scoreMap);
     }
 
     public static Builder builder() {
         return new Builder();
+    }
+
+    public ImmutableMap<String, Double> getScoreMap() {
+        return scoreMap;
     }
 
     public String getVcfAlleleInfoField() {
@@ -39,21 +44,6 @@ public class CustomVariantEvaluation {
         return phenopacket;
     }
 
-    public double getDonorScore() {
-        return donorScore;
-    }
-
-    public double getAcceptorScore() {
-        return acceptorScore;
-    }
-
-    public double getIntronScore() {
-        return intronScore;
-    }
-
-    public double getExonScore() {
-        return exonScore;
-    }
 
     public static class Builder {
 
@@ -61,9 +51,9 @@ public class CustomVariantEvaluation {
 
         private Phenopacket phenopacket;
 
-        private double donorScore, acceptorScore, intronScore, exonScore;
-
         private String vcfAlleleInfoField;
+
+        private Map<String, Double> scoreMap = new HashMap<>();
 
         private Builder() {
 
@@ -74,23 +64,8 @@ public class CustomVariantEvaluation {
             return this;
         }
 
-        public Builder setDonorScore(double donorScore) {
-            this.donorScore = donorScore;
-            return this;
-        }
-
-        public Builder setAcceptorScore(double acceptorScore) {
-            this.acceptorScore = acceptorScore;
-            return this;
-        }
-
-        public Builder setIntronScore(double intronScore) {
-            this.intronScore = intronScore;
-            return this;
-        }
-
-        public Builder setExonScore(double exonScore) {
-            this.exonScore = exonScore;
+        public Builder putScore(String key, double value) {
+            this.scoreMap.put(key, value);
             return this;
         }
 

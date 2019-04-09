@@ -44,3 +44,20 @@ java -jar simulations-cli-0.2.0.jar --splice-scorer --exomiser.data-directory=/p
 **Limitations:**
 
 None at the moment.
+
+## Run splice scorers on ClinVar VCF
+
+**Command line arguments:**
+- `--clinvar-scorer` - flag required to run the command
+- `--exomiser.data-directory` - path to Exomiser data bundle - REQUIRED
+- `--clinvar-vcf` - path to ClinVar VCF file, the file should contain only variants on chromosomes \[1..22,X,Y\] - REQUIRED
+- `--output` - path where result TSV file will be written - REQUIRED
+
+Example run:
+```bash
+java -jar simulations-cli-0.2.0.jar --clinvar-scorer --exomiser.data-directory=/path/to/exomiser-data/directory --clinvar-vcf=/path/to/clinvar_vcf.gz  --output=/path/to/output_file.tsv
+```
+
+**Limitations:**
+
+- Does not work with variants from other chromosomes than \[1..22,X,Y\] (e.g. `MT`) at the moment   

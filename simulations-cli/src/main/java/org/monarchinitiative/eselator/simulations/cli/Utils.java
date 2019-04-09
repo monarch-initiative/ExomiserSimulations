@@ -1,5 +1,6 @@
 package org.monarchinitiative.eselator.simulations.cli;
 
+import com.google.protobuf.util.JsonFormat;
 import htsjdk.variant.variantcontext.Allele;
 import htsjdk.variant.variantcontext.GenotypeBuilder;
 import htsjdk.variant.variantcontext.VariantContext;
@@ -8,7 +9,7 @@ import org.phenopackets.schema.v1.Phenopacket;
 import org.phenopackets.schema.v1.core.OntologyClass;
 import org.phenopackets.schema.v1.core.Variant;
 import org.phenopackets.schema.v1.core.VcfAllele;
-import org.phenopackets.schema.v1.io.PhenopacketFormat;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -24,6 +25,8 @@ import java.util.stream.Collectors;
 public final class Utils {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(Utils.class);
+
+    private static final JsonFormat.Parser PARSER = JsonFormat.parser();
 
     public static final OntologyClass HET = OntologyClass.newBuilder().setId("GENO:0000135").setLabel("heterozygous").build();
 
@@ -45,12 +48,12 @@ public final class Utils {
      * if
      */
     public static Phenopacket readPhenopacket(Path phenopacketFilePath) throws IOException {
-        Phenopacket pp;
+        Phenopacket.Builder builder = Phenopacket.newBuilder();
         try (BufferedReader reader = Files.newBufferedReader(phenopacketFilePath)) {
             String json = reader.lines().collect(Collectors.joining());
-            pp = PhenopacketFormat.fromJson(json);
+            PARSER.merge(json, builder);
         }
-        return pp;
+        return builder.build();
     }
 
 
@@ -82,20 +85,20 @@ public final class Utils {
             allAlleles.add(Allele.create(vcfAllele.getRef(), true));
             allAlleles.add(Allele.create(vcfAllele.getAlt()));
 
-            OntologyClass genotype = variant.getGenotype();
+            OntologyClass zygosity = variant.getZygosity();
             GenotypeBuilder genotypeBuilder = new GenotypeBuilder()
                     .name(subjectId);
 
-            if (genotype.equals(HET)) {
+            if (zygosity.equals(HET)) {
                 // 1x REF + 1x ALT
                 genotypeBuilder.alleles(Arrays.asList(allAlleles.get(0), allAlleles.get(1)));
-            } else if (genotype.equals(HOM_ALT)) {
+            } else if (zygosity.equals(HOM_ALT)) {
                 // 2x ALT
                 genotypeBuilder.alleles(Arrays.asList(allAlleles.get(1), allAlleles.get(1)));
-            } else if (genotype.equals(HEMIZYGOUS)) {
+            } else if (zygosity.equals(HEMIZYGOUS)) {
                 genotypeBuilder.alleles(Collections.singletonList(allAlleles.get(1)));
             } else {
-                LOGGER.warn("Unknown genotype '{}'. Tried HET, HOM_ALT, HEMIZYGOUS", genotype);
+                LOGGER.warn("Unknown genotype '{}'. Tried HET, HOM_ALT, HEMIZYGOUS", zygosity);
                 continue;
             }
 

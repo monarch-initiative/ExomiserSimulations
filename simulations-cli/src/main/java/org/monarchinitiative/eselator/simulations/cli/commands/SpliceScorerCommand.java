@@ -7,9 +7,7 @@ import org.monarchinitiative.eselator.simulations.cli.CustomVariantEvaluation;
 import org.monarchinitiative.eselator.simulations.cli.Utils;
 import org.monarchinitiative.exomiser.core.genome.GenomeAnalysisService;
 import org.monarchinitiative.exomiser.core.genome.VariantAnnotator;
-import org.monarchinitiative.exomiser.core.genome.dao.splicing.SpliceScorer;
-import org.monarchinitiative.exomiser.core.genome.dao.splicing.SplicingContext;
-import org.monarchinitiative.exomiser.core.genome.dao.splicing.SplicingDao;
+import org.monarchinitiative.exomiser.core.genome.dao.splicing.*;
 import org.monarchinitiative.exomiser.core.model.VariantAnnotation;
 import org.monarchinitiative.exomiser.core.model.VariantEvaluation;
 import org.phenopackets.schema.v1.Phenopacket;
@@ -25,10 +23,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -48,17 +43,24 @@ public class SpliceScorerCommand implements ApplicationRunner {
 
     private final SplicingDao splicingDao;
 
-    private SpliceScorer scorer;
+    private final Path hexamerFilePath;
+
+    private final SplicingParameters splicingParameters;
+
+    private final SplicingInformationContentAnnotator splicingInformationContentAnnotator;
 
     private Path outputPath;
 
-    private String strategy;
 
-    public SpliceScorerCommand(GenomeAnalysisService genomeAnalysisService, VariantAnnotator variantAnnotator, JannovarData jannovarData, SplicingDao splicingDao) {
+    public SpliceScorerCommand(GenomeAnalysisService genomeAnalysisService, VariantAnnotator variantAnnotator,
+                               JannovarData jannovarData, SplicingDao splicingDao, Path hexamerFilePath) {
         this.genomeAnalysisService = genomeAnalysisService;
         this.variantAnnotator = variantAnnotator;
         this.jannovarData = jannovarData;
         this.splicingDao = splicingDao;
+        this.hexamerFilePath = hexamerFilePath;
+        this.splicingParameters = splicingDao.getSplicingParameters();
+        this.splicingInformationContentAnnotator = splicingDao.getIcAnnotator();
         this.phenopacketPaths = new ArrayList<>();
     }
 
@@ -77,28 +79,6 @@ public class SpliceScorerCommand implements ApplicationRunner {
         };
     }
 
-    private static Object[] makeRecordRepresentation(CustomVariantEvaluation cve, Map<String, String> fields) {
-        VariantEvaluation ve = cve.getVariantEvaluation();
-        return new Object[]{
-                // PP_ID
-                cve.getPhenopacket().getId(),
-                // VARIANT
-                String.format("%s:%d%s>%s", ve.getChromosomeName(), ve.getPosition(), ve.getRef(), ve.getAlt()),
-                // VCLASS
-                fields.get("VCLASS"),
-                // PATHOMECHANISM
-                fields.get("PATHOMECHANISM"),
-                // CONSEQUENCE
-                fields.get("CONSEQUENCE"),
-                // DONOR
-                cve.getDonorScore(),
-                // ACCEPTOR
-                cve.getAcceptorScore(),
-                // EXON
-                cve.getExonScore(),
-                // INTRON
-                cve.getIntronScore()};
-    }
 
     @Override
     public void run(ApplicationArguments args) throws Exception {
@@ -112,14 +92,6 @@ public class SpliceScorerCommand implements ApplicationRunner {
             return;
         }
 
-        // ----------------- SELECT SCORER ------------------------------------
-        if (!splicingDao.getScorersMap().containsKey(strategy)) {
-            LOGGER.warn("Unknown strategy '{}'. Known strategies: '{}'", strategy, splicingDao.getScorersMap().keySet());
-            return;
-        } else {
-            scorer = splicingDao.getScorersMap().get(strategy);
-        }
-        LOGGER.info("Using scoring strategy '{}'", strategy);
 
         // ----------------- READ PHENOPACKETS --------------------------------
         List<Phenopacket> ppList = new ArrayList<>();
@@ -136,6 +108,7 @@ public class SpliceScorerCommand implements ApplicationRunner {
 
         // ----------------- SCORE VARIANTS -----------------------------------
         LOGGER.info("Scoring variants");
+        Collection<SpliceScorer> scorers = Scorers.getAllSpliceScorers(splicingParameters, splicingInformationContentAnnotator, hexamerFilePath);
         // map to custom variant evaluations first
         List<CustomVariantEvaluation> cveList = new ArrayList<>();
         for (Phenopacket pp : ppList) {
@@ -156,25 +129,31 @@ public class SpliceScorerCommand implements ApplicationRunner {
                                 .annotations(annotation.getTranscriptAnnotations())
                                 .build();
 
-                        SplicingContext sctx = splicingDao.buildSplicingContext(ve);
-                        CustomVariantEvaluation cv = CustomVariantEvaluation.builder()
+                        CustomVariantEvaluation.Builder builder = CustomVariantEvaluation.builder()
                                 .setPhenopacket(pp)
                                 .setVariantEvaluation(ve)
-                                .setVcfAlleleInfoField(va.getInfo())
-                                .setDonorScore(scorer.pathogenicityForDonor(sctx))
-                                .setAcceptorScore(scorer.pathogenicityForAcceptor(sctx))
-                                .setIntronScore(scorer.pathogenicityForIntron(sctx))
-                                .setExonScore(scorer.pathogenicityForExon(sctx))
-                                .build();
-                        cveList.add(cv);
+                                .setVcfAlleleInfoField(va.getInfo());
+
+                        Optional<SplicingContext> sco = splicingDao.buildSplicingContext(ve);
+                        if (!sco.isPresent()) {
+                            continue;
+                        }
+                        final SplicingContext sctx = sco.get();
+
+                        scorers.forEach(scorer -> builder.putScore(scorer.getName(), scorer.getScoringFunction().apply(sctx)));
+
+                        cveList.add(builder.build());
                 }
             }
         }
 
         // ----------------- WRITE CUSTOM VARIANT EVALUATIONS TO FILE ---------
+        List<String> header = new ArrayList<>(Arrays.asList("PP_ID", "VARIANT", "VCLASS", "PATHOMECHANISM", "CONSEQUENCE"));
+        List<String> scorerNames = scorers.stream().map(SpliceScorer::getName).sorted().collect(Collectors.toList());
+        header.addAll(scorerNames);
+
         try (CSVPrinter printer = new CSVPrinter(Files.newBufferedWriter(outputPath),
-                CSVFormat.TDF
-                        .withHeader("PP_ID", "VARIANT", "VCLASS", "PATHOMECHANISM", "CONSEQUENCE", "DONOR", "ACCEPTOR", "EXON", "INTRON"))) {
+                CSVFormat.TDF.withHeader(header.toArray(new String[0])))) {
 
             for (CustomVariantEvaluation cve : cveList) {
                 // Decode INFO string:
@@ -183,8 +162,25 @@ public class SpliceScorerCommand implements ApplicationRunner {
                         .map(decodeInfoField())
                         .collect(Collectors.toMap(s -> s[0], s -> s[1]));
 
+                VariantEvaluation ve = cve.getVariantEvaluation();
+                List<Object> fields = new ArrayList<>();
+                // PP_ID
+                fields.add(cve.getPhenopacket().getId());
+                // VARIANT
+                fields.add(String.format("%s:%d%s>%s", ve.getChromosomeName(), ve.getPosition(), ve.getRef(), ve.getAlt()));
+                // VCLASS
+                fields.add(variantInfoFields.get("VCLASS"));
+                // PATHOMECHANISM
+                fields.add(variantInfoFields.get("PATHOMECHANISM"));
+                // CONSEQUENCE
+                fields.add(variantInfoFields.get("CONSEQUENCE"));
+                // SCORES
+                for (String name : scorerNames) {
+                    fields.add(cve.getScoreMap().get(name));
+                }
+
                 // write the variant
-                printer.printRecord(makeRecordRepresentation(cve, variantInfoFields));
+                printer.printRecord(fields.toArray());
             }
         }
         LOGGER.info("Wrote {} variants", cveList.size());
@@ -205,11 +201,6 @@ public class SpliceScorerCommand implements ApplicationRunner {
             return false;
         }
         outputPath = Paths.get(args.getOptionValues("output").get(0));
-
-        if (!args.containsOption("strategy")) {
-            LOGGER.warn("Missing '--strategy' argument");
-        }
-        strategy = args.getOptionValues("strategy").get(0);
 
         return true;
     }

@@ -57,7 +57,7 @@ public class SingleVcfSimulationCommand implements ApplicationRunner {
      */
     static List<String> getPresentPhenotypesAsHpoStrings(Phenopacket pp) {
         return pp.getPhenotypesList().stream()
-                .filter(p -> !p.getNegated())
+                .filter(p -> !p.getAbsent())
                 .map(p -> p.getType().getId())
                 .collect(Collectors.toList());
     }
