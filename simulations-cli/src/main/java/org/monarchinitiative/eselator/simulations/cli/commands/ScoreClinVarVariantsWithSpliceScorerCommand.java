@@ -157,8 +157,9 @@ public class ScoreClinVarVariantsWithSpliceScorerCommand implements ApplicationR
                             LOGGER.warn("Unable to write variant '{}'", variantRecord, e);
                         }
                     });
-
         }
+        LOGGER.info("くまくま━━━━━━ヽ（ ・(ｪ)・ ）ノ━━━━━━ !!!");
+        LOGGER.info("                 Done!               ");
     }
 
     private boolean parseCliArgs(ApplicationArguments args) {
