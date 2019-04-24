@@ -61,7 +61,7 @@ public class LiricalCommand implements ApplicationRunner {
 
     @Override
     public void run(ApplicationArguments args) throws Exception {
-        if (!args.containsOption("lirical-simulations")) {
+        if (!args.containsOption("lirical")) {
             // not running this command
             return;
         }
@@ -113,8 +113,8 @@ public class LiricalCommand implements ApplicationRunner {
             // -----------------------    RUN THE ANALYSIS AND WRITE THE RESULTS    ----------------
             LOGGER.info("Running the analysis");
             final AnalysisResults results = exomiser.run(analysis);
-
             // TODO(pnrobinson) - evaluate
+            System.out.println(results);
         }
 
     }

@@ -69,6 +69,7 @@ public class SingleVcfSimulator implements VcfSimulator {
         try (VCFFileReader reader = new VCFFileReader(templateVcfPath, false);
              VariantContextWriter writer = new VariantContextWriterBuilder()
                      .setOutputFile(outPath)
+                     .setOption(Options.ALLOW_MISSING_FIELDS_IN_HEADER)
                      .setOutputFileType(VariantContextWriterBuilder.OutputType.VCF)
                      .unsetOption(Options.INDEX_ON_THE_FLY)
                      .build()) {
