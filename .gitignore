@@ -40,7 +40,7 @@ nbactions.xml
 exomiser-db/nbactions.xml
 
 # IntelliJ stuff
-/.idea
+.idea/
 *.iml
 *.log
 
