@@ -1,4 +1,4 @@
-package org.monarchinitiative.eselator.simulations.cli;
+package org.monarchinitiative.exomiser_simulations.cli;
 
 import org.monarchinitiative.exomiser.autoconfigure.EnableExomiser;
 import org.springframework.boot.SpringApplication;

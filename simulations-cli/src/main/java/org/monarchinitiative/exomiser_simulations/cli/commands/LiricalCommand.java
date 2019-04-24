@@ -1,8 +1,8 @@
-package org.monarchinitiative.eselator.simulations.cli.commands;
+package org.monarchinitiative.exomiser_simulations.cli.commands;
 
-import org.monarchinitiative.eselator.simulations.cli.Utils;
-import org.monarchinitiative.eselator.simulations.cli.simulators.SingleVcfSimulator;
-import org.monarchinitiative.eselator.simulations.cli.simulators.VcfSimulator;
+import org.monarchinitiative.exomiser_simulations.cli.Utils;
+import org.monarchinitiative.exomiser_simulations.cli.simulators.SingleVcfSimulator;
+import org.monarchinitiative.exomiser_simulations.cli.simulators.VcfSimulator;
 import org.monarchinitiative.exomiser.core.Exomiser;
 import org.monarchinitiative.exomiser.core.analysis.Analysis;
 import org.monarchinitiative.exomiser.core.analysis.AnalysisMode;

@@ -1,19 +1,15 @@
-package org.monarchinitiative.eselator.simulations.cli;
+package org.monarchinitiative.exomiser_simulations.cli;
 
 import htsjdk.variant.variantcontext.GenotypeType;
 import htsjdk.variant.variantcontext.VariantContext;
 import org.junit.jupiter.api.Test;
-import org.phenopackets.schema.v1.Phenopacket;
-import org.phenopackets.schema.v1.core.Individual;
-import org.phenopackets.schema.v1.core.Variant;
-import org.phenopackets.schema.v1.core.VcfAllele;
 
 import java.util.List;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.CoreMatchers.*;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.monarchinitiative.eselator.simulations.cli.TestExamples.*;
+import static org.monarchinitiative.exomiser_simulations.cli.TestExamples.*;
 
 class UtilsTest {
 

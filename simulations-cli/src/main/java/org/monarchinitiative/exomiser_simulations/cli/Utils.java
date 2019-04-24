@@ -1,4 +1,4 @@
-package org.monarchinitiative.eselator.simulations.cli;
+package org.monarchinitiative.exomiser_simulations.cli;
 
 import com.google.protobuf.util.JsonFormat;
 import htsjdk.variant.variantcontext.Allele;
@@ -19,7 +19,6 @@ import java.nio.file.Path;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
 public final class Utils {
 
