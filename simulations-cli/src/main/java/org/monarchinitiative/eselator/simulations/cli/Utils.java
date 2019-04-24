@@ -1,5 +1,6 @@
 package org.monarchinitiative.eselator.simulations.cli;
 
+import com.google.protobuf.util.JsonFormat;
 import htsjdk.variant.variantcontext.Allele;
 import htsjdk.variant.variantcontext.GenotypeBuilder;
 import htsjdk.variant.variantcontext.VariantContext;
@@ -8,7 +9,6 @@ import org.phenopackets.schema.v1.Phenopacket;
 import org.phenopackets.schema.v1.core.OntologyClass;
 import org.phenopackets.schema.v1.core.Variant;
 import org.phenopackets.schema.v1.core.VcfAllele;
-import org.phenopackets.schema.v1.io.PhenopacketFormat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -24,6 +24,8 @@ import java.util.stream.Collectors;
 public final class Utils {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(Utils.class);
+
+    private static final JsonFormat.Parser JSON_PARSER = JsonFormat.parser();
 
     public static final OntologyClass HET = OntologyClass.newBuilder().setId("GENO:0000135").setLabel("heterozygous").build();
 
@@ -47,8 +49,9 @@ public final class Utils {
     public static Phenopacket readPhenopacket(Path phenopacketFilePath) throws IOException {
         Phenopacket pp;
         try (BufferedReader reader = Files.newBufferedReader(phenopacketFilePath)) {
-            String json = reader.lines().collect(Collectors.joining());
-            pp = PhenopacketFormat.fromJson(json);
+            Phenopacket.Builder ppb = Phenopacket.newBuilder();
+            JSON_PARSER.merge(reader, ppb);
+            pp = ppb.build();
         }
         return pp;
     }
@@ -82,7 +85,7 @@ public final class Utils {
             allAlleles.add(Allele.create(vcfAllele.getRef(), true));
             allAlleles.add(Allele.create(vcfAllele.getAlt()));
 
-            OntologyClass genotype = variant.getGenotype();
+            OntologyClass genotype = variant.getZygosity();
             GenotypeBuilder genotypeBuilder = new GenotypeBuilder()
                     .name(subjectId);
 

@@ -89,7 +89,7 @@ public class SingleVcfSimulationCommand implements ApplicationRunner {
 
 
         // -----------------------    FORGE EXOMISER ANALYSIS    -----------------------------------
-        Set<FrequencySource> frequencySources = new HashSet<>(FrequencySource.FREQUENCY_SOURCE_MAP.values());
+        Set<FrequencySource> frequencySources = new HashSet<>(FrequencySource.ALL_EXTERNAL_FREQ_SOURCES);
         LOGGER.info("Creating analysis");
         Analysis analysis = exomiser.getAnalysisBuilder()
                 .analysisMode(AnalysisMode.PASS_ONLY)

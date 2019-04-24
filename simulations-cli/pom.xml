@@ -53,7 +53,7 @@
         <dependency>
             <groupId>org.monarchinitiative.exomiser</groupId>
             <artifactId>exomiser-spring-boot-starter</artifactId>
-            <version>11.0.0-SP-1</version>
+            <version>12.0.0</version>
             <exclusions>
                 <exclusion>
                     <groupId>com.google.protobuf</groupId>
@@ -64,7 +64,7 @@
         <dependency>
             <groupId>org.phenopackets</groupId>
             <artifactId>phenopacket-schema</artifactId>
-            <version>0.3.0</version>
+            <version>0.4.0</version>
         </dependency>
         <dependency>
             <groupId>com.google.protobuf</groupId>
