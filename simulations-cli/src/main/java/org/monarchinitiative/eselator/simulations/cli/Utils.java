@@ -33,7 +33,7 @@ public final class Utils {
 
     public static final OntologyClass HEMIZYGOUS = OntologyClass.newBuilder().setId("GENO:0000134").setLabel("hemizygous").build();
 
-    private static final Pattern INFO_BIFIELD = Pattern.compile("(\\w+)=(-?[\\w.]+)");
+    private static final Pattern INFO_BIFIELD = Pattern.compile("(\\w+)=(-?[\\w.'/\\s]+)");
 
     private Utils() {
         // private no-op
@@ -108,7 +108,9 @@ public final class Utils {
             for (String s : vcfAllele.getInfo().split(";")) {
                 Matcher bifield = INFO_BIFIELD.matcher(s);
                 if (bifield.matches()) {
-                    infoFields.put(bifield.group(1), bifield.group(2));
+                    String key = bifield.group(1);
+                    String value = bifield.group(2).replaceAll("\\s+", "_");
+                    infoFields.put(key, value);
                 } else {
                     infoFields.put(s, null);
                 }
