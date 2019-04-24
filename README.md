@@ -27,20 +27,10 @@ There are some hardcoded constraints present at the moment:
 - Exomiser version with splicing code (`11.0.0-SP-1`) must be installed in your local Maven repo in order to compile & run the app
 - no information regarding expected mode of inheritance is extracted from the `Phenopacket` 
 
-## Run splice scorer
+## Run LIRICAL
 
 **Command line arguments:**
-- `--splice-scorer` - flag required to run the command
+- `--lirical` - flag required to run the command
 - `--exomiser.data-directory` - path to Exomiser data bundle
-- `--pp` - path to Phenopacket JSON file. REQUIRED, may be repeated
-- `--output` - path where result file will be written. REQUIRED
-- `--strategy` - choose from `{sigmoid, advanced}`
-
-Example run:
-```bash
-java -jar simulations-cli-0.1.0.jar --splice-scorer --exomiser.data-directory=/path/to/exomiser-data/directory --pp=/path/to/first_phenopacket.json --pp=/path/to/second_phenopacket.json --output=/path/to/output_file --strategy=advanced
-```
-
-**Limitations:**
-
-None at the moment.
+- `--pp` - path to directory with Phenopackets in JSON format. Note: phenopackets **only** must be present in the directory
+- `--vcf` - path to VCF file with variants, where variants from Phenopacket will be spiked in
