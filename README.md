@@ -1,4 +1,4 @@
-# Eselator simulations
+# Exomiser simulations
 
 This repo contains code for running simulations using Exomiser version enriched with code for splicing analysis. The code will receive a `Phenopacket`, simulate an exome VCF and run the Exomiser analysis.
 
