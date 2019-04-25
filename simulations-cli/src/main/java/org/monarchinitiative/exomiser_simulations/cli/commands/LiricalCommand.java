@@ -1,5 +1,7 @@
 package org.monarchinitiative.exomiser_simulations.cli.commands;
 
+import org.monarchinitiative.exomiser.core.model.Gene;
+import org.monarchinitiative.exomiser.core.model.GeneScore;
 import org.monarchinitiative.exomiser_simulations.cli.Utils;
 import org.monarchinitiative.exomiser_simulations.cli.simulators.SingleVcfSimulator;
 import org.monarchinitiative.exomiser_simulations.cli.simulators.VcfSimulator;
@@ -17,13 +19,13 @@ import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.stereotype.Component;
 
+import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Component
@@ -41,6 +43,12 @@ public class LiricalCommand implements ApplicationRunner {
     private Path templateVcfPath;
 
     private Path phenopacketDirectoryPath;
+
+    private List<String> resultlist=new ArrayList<>();
+    /** key -- a rank, e.g., 3; value -- number of diseases with this rank inthe simulation. */
+    private Map<Integer,Integer> rankCountMap = new HashMap<>();
+
+
 
     public LiricalCommand(Exomiser exomiser) {
         this.exomiser = exomiser;
@@ -88,6 +96,24 @@ public class LiricalCommand implements ApplicationRunner {
                 System.exit(1);
             }
 
+            if (pp.getGenesCount() != 1) {
+                LOGGER.error("[ERROR] Phenopackets used for simulation MUST have exactly one gene");
+                System.exit(1);
+            }
+            String entrezString = pp.getGenes(0).getId();
+            if (entrezString.indexOf("ENTREZ:")>=0) {
+                entrezString = entrezString.substring(7);
+            }
+            int entrezId = Integer.parseInt(entrezString);
+
+            String symbol = pp.getGenes(0).getSymbol();
+            if (pp.getDiseasesCount()!=1) {
+                LOGGER.error("[ERROR] Phenopackets used for simulation MUST have exactly one disease");
+                System.exit(1);
+            }
+            String diseaseId = pp.getDiseases(0).getTerm().getId();
+            String diseaseLabel = pp.getDiseases(0).getTerm().getLabel();
+
             // -----------------------    CREATE THE SIMULATED VCF FILE    -------------------------
             LOGGER.info("Creating simulated VCF file");
             VcfSimulator simulator = new SingleVcfSimulator(templateVcfPath);
@@ -114,10 +140,62 @@ public class LiricalCommand implements ApplicationRunner {
             LOGGER.info("Running the analysis");
             final AnalysisResults results = exomiser.run(analysis);
             // TODO(pnrobinson) - evaluate
+            List<Gene> genescores = results.getGenes();
+            int rank = 0;
+            for (Gene gene :genescores) {
+                int entrez = gene.getEntrezGeneID();
+                String symb = gene.getGeneSymbol();
+                rank++;
+                if (entrez == entrezId) {
+                    // this is the rank of the target gene
+                    String res = String.format("[INFO] Rank of gene %s [%s;%s] was %d", symb,diseaseLabel,diseaseId,rank);
+                    System.out.println(res);
+                    resultlist.add(res);
+                    rankCountMap.putIfAbsent(rank,0);
+                    int c = 1 + rankCountMap.get(rank);
+                    rankCountMap.put(rank,c);
+                }
+            }
+
             System.out.println(results);
         }
-
+        printOutSimulationResults();
     }
+
+
+    private void printOutSimulationResults() {
+        try {
+            BufferedWriter writer = new BufferedWriter(new FileWriter("exomiser_sim_results.txt"));
+            int N = 0;
+            int total_rank = 0;
+
+            List<Integer> ranklist = new ArrayList<>(rankCountMap.values());
+            Collections.sort(ranklist,Collections.reverseOrder());
+
+
+            for (Integer rank : ranklist) {
+                int times = rankCountMap.get(rank);
+                N += times;
+                total_rank += rank*times;
+                String perc = String.format(" (%.2f%%)",100.0*times/rankCountMap.size());
+                writer.write("rank " + rank + ": " + times + " cases " + perc + "\n");
+            }
+            double avg_rank = (double)total_rank/N;
+            writer.write("average rank " + avg_rank +  ".\n" );
+            for (String line : resultlist) {
+                writer.write(line + "\n");
+            }
+            writer.close();
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+
+
+
+
 
     /**
      * Parse the command line arguments and return false if anything is missing. Errors are also logged.
