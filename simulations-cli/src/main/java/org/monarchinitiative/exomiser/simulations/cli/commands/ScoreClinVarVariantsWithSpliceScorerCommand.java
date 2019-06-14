@@ -1,15 +1,7 @@
-package org.monarchinitiative.eselator.simulations.cli.commands;
+package org.monarchinitiative.exomiser.simulations.cli.commands;
 
-import de.charite.compbio.jannovar.data.JannovarData;
 import htsjdk.variant.variantcontext.VariantContext;
 import htsjdk.variant.vcf.*;
-import org.apache.commons.csv.CSVFormat;
-import org.apache.commons.csv.CSVPrinter;
-import org.monarchinitiative.eselator.simulations.cli.CustomVariantEvaluation;
-import org.monarchinitiative.exomiser.core.genome.VariantAnnotator;
-import org.monarchinitiative.exomiser.core.genome.dao.splicing.*;
-import org.monarchinitiative.exomiser.core.model.VariantAnnotation;
-import org.monarchinitiative.exomiser.core.model.VariantEvaluation;
 import org.phenopackets.schema.v1.Phenopacket;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,15 +9,14 @@ import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.stereotype.Component;
 
-import java.io.IOException;
 import java.lang.reflect.Array;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.*;
+import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
 import static htsjdk.variant.vcf.VCFEncoder.formatVCFDouble;
 
@@ -38,29 +29,10 @@ public class ScoreClinVarVariantsWithSpliceScorerCommand implements ApplicationR
 
     private static final Pattern CLNSIG_REGEXP = Pattern.compile(".*Benign.*");
 
-    private final SplicingParameters splicingParameters;
-
-    private final SplicingInformationContentAnnotator splicingInformationContentAnnotator;
-
-    private final JannovarData jannovarData;
-
-    private final VariantAnnotator variantAnnotator;
-
-    private final SplicingDao splicingDao;
-
-    private final Path hexamerFilePath;
-
     private Path clinVarVcfPath, outputPath;
 
-    public ScoreClinVarVariantsWithSpliceScorerCommand(JannovarData jannovarData,
-                                                       VariantAnnotator variantAnnotator,
-                                                       SplicingDao splicingDao, Path hexamerFilePath) {
-        this.splicingParameters = splicingDao.getSplicingParameters();
-        this.splicingInformationContentAnnotator = splicingDao.getIcAnnotator();
-        this.jannovarData = jannovarData;
-        this.variantAnnotator = variantAnnotator;
-        this.splicingDao = splicingDao;
-        this.hexamerFilePath = hexamerFilePath;
+    public ScoreClinVarVariantsWithSpliceScorerCommand() {
+
     }
 
 
@@ -83,6 +55,8 @@ public class ScoreClinVarVariantsWithSpliceScorerCommand implements ApplicationR
         };
 
         // ----------------- SCORE VARIANTS & WRITE TO FILE -------------------
+        LOGGER.error("\n\nTHIS CLASS NEEDS TO BE REWORKED IN ORDER TO WORK AGAIN\n\n");
+        /*
         LOGGER.info("Scoring variants");
         Collection<SpliceScorer> scorers = Scorers.getAllSpliceScorers(splicingParameters, splicingInformationContentAnnotator, hexamerFilePath);
 
@@ -160,6 +134,7 @@ public class ScoreClinVarVariantsWithSpliceScorerCommand implements ApplicationR
         }
         LOGGER.info("くまくま━━━━━━ヽ（ ・(ｪ)・ ）ノ━━━━━━ !!!");
         LOGGER.info("                 Done!               ");
+        */
     }
 
     private boolean parseCliArgs(ApplicationArguments args) {

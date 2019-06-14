@@ -1,19 +1,14 @@
-package org.monarchinitiative.eselator.simulations.cli;
+package org.monarchinitiative.exomiser.simulations.cli;
 
 import htsjdk.variant.variantcontext.GenotypeType;
 import htsjdk.variant.variantcontext.VariantContext;
 import org.junit.jupiter.api.Test;
-import org.phenopackets.schema.v1.Phenopacket;
-import org.phenopackets.schema.v1.core.Individual;
-import org.phenopackets.schema.v1.core.Variant;
-import org.phenopackets.schema.v1.core.VcfAllele;
 
 import java.util.List;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.CoreMatchers.*;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.monarchinitiative.eselator.simulations.cli.TestExamples.*;
 
 class UtilsTest {
 
@@ -24,7 +19,7 @@ class UtilsTest {
     void functionPhenopacketToHetVariantContextWorks() {
         String jb = "JohnnyBravo";
         List<VariantContext> variantContexts = Utils.phenopacketToVariantContexts(
-                makePhenopacketWithHetVariant(hetVariant(), individual(jb)));
+                TestExamples.makePhenopacketWithHetVariant(TestExamples.hetVariant(), TestExamples.individual(jb)));
 
         assertThat(variantContexts.size(), is(1));
         VariantContext vc = variantContexts.get(0);
@@ -43,7 +38,7 @@ class UtilsTest {
     void functionPhenopacketToHomaltVariantContextWorks() {
         String jb = "JohnnyBravo";
         List<VariantContext> variantContexts = Utils.phenopacketToVariantContexts(
-                makePhenopacketWithHetVariant(homAltVariant(), individual(jb)));
+                TestExamples.makePhenopacketWithHetVariant(TestExamples.homAltVariant(), TestExamples.individual(jb)));
 
         assertThat(variantContexts.size(), is(1));
         VariantContext vc = variantContexts.get(0);
@@ -61,7 +56,7 @@ class UtilsTest {
     void functionPhenopacketToHemizygousVariantContextWorks() {
         String jb = "JohnnyBravo";
         List<VariantContext> variantContexts = Utils.phenopacketToVariantContexts(
-                makePhenopacketWithHetVariant(hemizygousVariant(), individual(jb)));
+                TestExamples.makePhenopacketWithHetVariant(TestExamples.hemizygousVariant(), TestExamples.individual(jb)));
 
         assertThat(variantContexts.size(), is(1));
         VariantContext vc = variantContexts.get(0);

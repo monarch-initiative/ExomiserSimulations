@@ -1,4 +1,4 @@
-package org.monarchinitiative.eselator.simulations.cli.simulators;
+package org.monarchinitiative.exomiser.simulations.cli.simulators;
 
 import htsjdk.variant.variantcontext.GenotypeBuilder;
 import htsjdk.variant.variantcontext.VariantContext;
@@ -9,7 +9,7 @@ import htsjdk.variant.variantcontext.writer.VariantContextWriter;
 import htsjdk.variant.variantcontext.writer.VariantContextWriterBuilder;
 import htsjdk.variant.vcf.VCFFileReader;
 import htsjdk.variant.vcf.VCFHeader;
-import org.monarchinitiative.eselator.simulations.cli.Utils;
+import org.monarchinitiative.exomiser.simulations.cli.Utils;
 import org.phenopackets.schema.v1.Phenopacket;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

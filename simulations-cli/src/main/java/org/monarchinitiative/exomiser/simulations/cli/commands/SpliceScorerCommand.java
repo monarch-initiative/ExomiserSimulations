@@ -1,18 +1,7 @@
-package org.monarchinitiative.eselator.simulations.cli.commands;
+package org.monarchinitiative.exomiser.simulations.cli.commands;
 
-import de.charite.compbio.jannovar.data.JannovarData;
-import org.apache.commons.csv.CSVFormat;
-import org.apache.commons.csv.CSVPrinter;
-import org.monarchinitiative.eselator.simulations.cli.CustomVariantEvaluation;
-import org.monarchinitiative.eselator.simulations.cli.Utils;
-import org.monarchinitiative.exomiser.core.genome.GenomeAnalysisService;
-import org.monarchinitiative.exomiser.core.genome.VariantAnnotator;
-import org.monarchinitiative.exomiser.core.genome.dao.splicing.*;
-import org.monarchinitiative.exomiser.core.model.VariantAnnotation;
-import org.monarchinitiative.exomiser.core.model.VariantEvaluation;
+import org.monarchinitiative.exomiser.simulations.cli.Utils;
 import org.phenopackets.schema.v1.Phenopacket;
-import org.phenopackets.schema.v1.core.Variant;
-import org.phenopackets.schema.v1.core.VcfAllele;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.ApplicationArguments;
@@ -20,12 +9,11 @@ import org.springframework.boot.ApplicationRunner;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 
 @Component
 public class SpliceScorerCommand implements ApplicationRunner {
@@ -35,32 +23,10 @@ public class SpliceScorerCommand implements ApplicationRunner {
 
     private final List<String> phenopacketPaths;
 
-    private final GenomeAnalysisService genomeAnalysisService;
-
-    private final VariantAnnotator variantAnnotator;
-
-    private final JannovarData jannovarData;
-
-    private final SplicingDao splicingDao;
-
-    private final Path hexamerFilePath;
-
-    private final SplicingParameters splicingParameters;
-
-    private final SplicingInformationContentAnnotator splicingInformationContentAnnotator;
-
     private Path outputPath;
 
 
-    public SpliceScorerCommand(GenomeAnalysisService genomeAnalysisService, VariantAnnotator variantAnnotator,
-                               JannovarData jannovarData, SplicingDao splicingDao, Path hexamerFilePath) {
-        this.genomeAnalysisService = genomeAnalysisService;
-        this.variantAnnotator = variantAnnotator;
-        this.jannovarData = jannovarData;
-        this.splicingDao = splicingDao;
-        this.hexamerFilePath = hexamerFilePath;
-        this.splicingParameters = splicingDao.getSplicingParameters();
-        this.splicingInformationContentAnnotator = splicingDao.getIcAnnotator();
+    public SpliceScorerCommand() {
         this.phenopacketPaths = new ArrayList<>();
     }
 
@@ -108,6 +74,7 @@ public class SpliceScorerCommand implements ApplicationRunner {
 
         // ----------------- SCORE VARIANTS -----------------------------------
         LOGGER.info("Scoring variants");
+        /*
         Collection<SpliceScorer> scorers = Scorers.getAllSpliceScorers(splicingParameters, splicingInformationContentAnnotator, hexamerFilePath);
         // map to custom variant evaluations first
         List<CustomVariantEvaluation> cveList = new ArrayList<>();
@@ -149,8 +116,8 @@ public class SpliceScorerCommand implements ApplicationRunner {
 
         // ----------------- WRITE CUSTOM VARIANT EVALUATIONS TO FILE ---------
         List<String> header = new ArrayList<>(Arrays.asList("PP_ID", "VARIANT", "VCLASS", "PATHOMECHANISM", "CONSEQUENCE"));
-        List<String> scorerNames = scorers.stream().map(SpliceScorer::getName).sorted().collect(Collectors.toList());
-        header.addAll(scorerNames);
+//        List<String> scorerNames = scorers.stream().map(SpliceScorer::getName).sorted().collect(Collectors.toList());
+//        header.addAll(scorerNames);
 
         try (CSVPrinter printer = new CSVPrinter(Files.newBufferedWriter(outputPath),
                 CSVFormat.TDF.withHeader(header.toArray(new String[0])))) {
@@ -184,6 +151,7 @@ public class SpliceScorerCommand implements ApplicationRunner {
             }
         }
         LOGGER.info("Wrote {} variants", cveList.size());
+        */
         LOGGER.info("Done!");
     }
 

@@ -1,4 +1,4 @@
-package org.monarchinitiative.eselator.simulations.cli;
+package org.monarchinitiative.exomiser.simulations.cli;
 
 import com.google.protobuf.util.JsonFormat;
 import htsjdk.variant.variantcontext.Allele;

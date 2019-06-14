@@ -1,6 +1,5 @@
-package org.monarchinitiative.eselator.simulations.cli.simulators;
+package org.monarchinitiative.exomiser.simulations.cli.simulators;
 
-import htsjdk.variant.variantcontext.GenotypeType;
 import htsjdk.variant.variantcontext.VariantContext;
 import htsjdk.variant.vcf.VCFFileReader;
 import htsjdk.variant.vcf.VCFHeader;
@@ -9,8 +8,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
-import org.monarchinitiative.eselator.simulations.cli.TestExamples;
-import org.monarchinitiative.eselator.simulations.cli.Utils;
+import org.monarchinitiative.exomiser.simulations.cli.TestExamples;
+import org.monarchinitiative.exomiser.simulations.cli.Utils;
 import org.phenopackets.schema.v1.Phenopacket;
 
 import java.io.File;
@@ -24,7 +23,7 @@ import static org.hamcrest.CoreMatchers.hasItem;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.monarchinitiative.eselator.simulations.cli.TestExamples.*;
+import static org.monarchinitiative.exomiser.simulations.cli.TestExamples.*;
 
 class SingleVcfSimulatorTest {
 

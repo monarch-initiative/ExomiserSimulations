@@ -1,23 +1,21 @@
-package org.monarchinitiative.exomiser_simulations.cli.commands;
+package org.monarchinitiative.exomiser.simulations.cli.commands;
 
 import org.monarchinitiative.exomiser.core.model.Gene;
-import org.monarchinitiative.exomiser.core.model.GeneScore;
-import org.monarchinitiative.exomiser_simulations.cli.Utils;
-import org.monarchinitiative.exomiser_simulations.cli.simulators.SingleVcfSimulator;
-import org.monarchinitiative.exomiser_simulations.cli.simulators.VcfSimulator;
 import org.monarchinitiative.exomiser.core.Exomiser;
 import org.monarchinitiative.exomiser.core.analysis.Analysis;
 import org.monarchinitiative.exomiser.core.analysis.AnalysisMode;
 import org.monarchinitiative.exomiser.core.analysis.AnalysisResults;
 import org.monarchinitiative.exomiser.core.genome.GenomeAssembly;
 import org.monarchinitiative.exomiser.core.model.frequency.FrequencySource;
+import org.monarchinitiative.exomiser.simulations.cli.Utils;
+import org.monarchinitiative.exomiser.simulations.cli.simulators.SingleVcfSimulator;
+import org.monarchinitiative.exomiser.simulations.cli.simulators.VcfSimulator;
 import org.phenopackets.schema.v1.Phenopacket;
-import org.phenopackets.schema.v1.core.Phenotype;
+import org.phenopackets.schema.v1.core.PhenotypicFeature;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
-import org.springframework.stereotype.Component;
 
 import java.io.BufferedWriter;
 import java.io.File;
@@ -28,7 +26,7 @@ import java.nio.file.Paths;
 import java.util.*;
 import java.util.stream.Collectors;
 
-@Component
+//@Component
 public class LiricalCommand implements ApplicationRunner {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(LiricalCommand.class);
@@ -55,13 +53,13 @@ public class LiricalCommand implements ApplicationRunner {
     }
 
     /**
-     * Only present (non-negated) {@link Phenotype}s are reported
+     * Only present (non-negated) {@link PhenotypicFeature}s are reported
      *
      * @param pp {@link Phenopacket} describing the proband
      * @return list of HPO id strings representing subject's phenotype
      */
     static List<String> getPresentPhenotypesAsHpoStrings(Phenopacket pp) {
-        return pp.getPhenotypesList().stream()
+        return pp.getPhenotypicFeaturesList().stream()
                 .filter(p -> !p.getNegated())
                 .map(p -> p.getType().getId())
                 .collect(Collectors.toList());
@@ -85,8 +83,7 @@ public class LiricalCommand implements ApplicationRunner {
             LOGGER.warn("Phenopacket file array is null. This should not happen");
             return;
         }
-        List<File> phenopackets = Arrays.asList(fileArray);
-        for (File phenopacketFilePath : phenopackets) {
+        for (File phenopacketFilePath : fileArray) {
             // -----------------------    READ PHENOPACKET    --------------------------------------
             LOGGER.info("Reading phenopacket from '{}'", phenopacketFilePath);
             Phenopacket pp;
@@ -101,7 +98,7 @@ public class LiricalCommand implements ApplicationRunner {
                 System.exit(1);
             }
             String entrezString = pp.getGenes(0).getId();
-            if (entrezString.indexOf("ENTREZ:")>=0) {
+            if (entrezString.contains("ENTREZ:")) {
                 entrezString = entrezString.substring(7);
             }
             int entrezId = Integer.parseInt(entrezString);
@@ -170,7 +167,7 @@ public class LiricalCommand implements ApplicationRunner {
             int total_rank = 0;
 
             List<Integer> ranklist = new ArrayList<>(rankCountMap.values());
-            Collections.sort(ranklist,Collections.reverseOrder());
+            ranklist.sort(Collections.reverseOrder());
 
 
             for (Integer rank : ranklist) {

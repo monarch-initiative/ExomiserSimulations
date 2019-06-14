@@ -1,8 +1,8 @@
-package org.monarchinitiative.eselator.simulations.cli.commands;
+package org.monarchinitiative.exomiser.simulations.cli.commands;
 
-import org.monarchinitiative.eselator.simulations.cli.Utils;
-import org.monarchinitiative.eselator.simulations.cli.simulators.SingleVcfSimulator;
-import org.monarchinitiative.eselator.simulations.cli.simulators.VcfSimulator;
+import org.monarchinitiative.exomiser.simulations.cli.Utils;
+import org.monarchinitiative.exomiser.simulations.cli.simulators.SingleVcfSimulator;
+import org.monarchinitiative.exomiser.simulations.cli.simulators.VcfSimulator;
 import org.monarchinitiative.exomiser.core.Exomiser;
 import org.monarchinitiative.exomiser.core.analysis.Analysis;
 import org.monarchinitiative.exomiser.core.analysis.AnalysisMode;
@@ -13,14 +13,13 @@ import org.monarchinitiative.exomiser.core.writers.AnalysisResultsWriter;
 import org.monarchinitiative.exomiser.core.writers.OutputFormat;
 import org.monarchinitiative.exomiser.core.writers.OutputSettings;
 import org.phenopackets.schema.v1.Phenopacket;
-import org.phenopackets.schema.v1.core.Phenotype;
+import org.phenopackets.schema.v1.core.PhenotypicFeature;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.stereotype.Component;
 
-import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.EnumSet;
@@ -50,14 +49,15 @@ public class SingleVcfSimulationCommand implements ApplicationRunner {
 
 
     /**
-     * Only present (non-negated) {@link Phenotype}s are reported
+     * Only present (non-negated) {@link PhenotypicFeature}s are reported
      *
      * @param pp {@link Phenopacket} describing the proband
      * @return list of HPO id strings representing subject's phenotype
      */
     static List<String> getPresentPhenotypesAsHpoStrings(Phenopacket pp) {
-        return pp.getPhenotypesList().stream()
-                .filter(p -> !p.getAbsent())
+
+        return pp.getPhenotypicFeaturesList().stream()
+                .filter(p -> !p.getNegated())
                 .map(p -> p.getType().getId())
                 .collect(Collectors.toList());
     }
@@ -89,7 +89,7 @@ public class SingleVcfSimulationCommand implements ApplicationRunner {
 
 
         // -----------------------    FORGE EXOMISER ANALYSIS    -----------------------------------
-        Set<FrequencySource> frequencySources = new HashSet<>(FrequencySource.FREQUENCY_SOURCE_MAP.values());
+        Set<FrequencySource> frequencySources = new HashSet<>(FrequencySource.ALL_EXTERNAL_FREQ_SOURCES);
         LOGGER.info("Creating analysis");
         Analysis analysis = exomiser.getAnalysisBuilder()
                 .analysisMode(AnalysisMode.PASS_ONLY)
