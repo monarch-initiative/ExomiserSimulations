@@ -64,7 +64,7 @@
         <dependency>
             <groupId>org.phenopackets</groupId>
             <artifactId>phenopacket-schema</artifactId>
-            <version>1.0.0-RC1</version>
+            <version>${phenopacket-schema.version}</version>
         </dependency>
         <dependency>
             <groupId>com.google.protobuf</groupId>

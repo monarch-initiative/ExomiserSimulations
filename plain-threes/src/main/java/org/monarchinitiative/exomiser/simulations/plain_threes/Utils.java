@@ -1,4 +1,4 @@
-package org.monarchinitiative.exomiser.simulations.cli;
+package org.monarchinitiative.exomiser.simulations.plain_threes;
 
 import com.google.protobuf.util.JsonFormat;
 import htsjdk.variant.variantcontext.Allele;

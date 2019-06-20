@@ -4,6 +4,19 @@ This repo contains code for running simulations using Exomiser version enriched 
 
 Simulated exome VCF file is being created in a naive way at the moment. A single VCF file with variants is required and the variants from `Phenopacket` are spiked in between the variants.
 
+## Run Threes evaluator
+
+**Command line arguments:**
+- `--threes-evaluator` - flag required to run the command 
+- `--pp=/path/to/first_phenopacket --pp=/path/to/second_phenopacket [...]` - path to Phenopacket(s) in JSON format  
+- `--vcf=/path/to/template.vcf` - path to VCF file with variants, where variants from Phenopacket will be spiked in (`.gz` suffix is recognized automatically)  
+- `--output=/path/to/result_dir` - where to write the results
+
+Example run:
+```bash
+java -jar simulations-cli-0.2.0.jar --threes-evaluator --exomiser.data-directory=/path/to/exomiser-data/directory --pp=/path/to/phenopacket.json --vcf=/path/to/template.vcf --output=/path/to/output
+```
+
 ## Inject phenopacket variants & phenotype into VCF file and run Exomiser analysis 
 
 **Command line arguments:**

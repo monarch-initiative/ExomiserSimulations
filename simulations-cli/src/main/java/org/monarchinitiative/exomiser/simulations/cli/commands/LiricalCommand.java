@@ -1,17 +1,16 @@
 package org.monarchinitiative.exomiser.simulations.cli.commands;
 
-import org.monarchinitiative.exomiser.core.model.Gene;
 import org.monarchinitiative.exomiser.core.Exomiser;
 import org.monarchinitiative.exomiser.core.analysis.Analysis;
 import org.monarchinitiative.exomiser.core.analysis.AnalysisMode;
 import org.monarchinitiative.exomiser.core.analysis.AnalysisResults;
 import org.monarchinitiative.exomiser.core.genome.GenomeAssembly;
+import org.monarchinitiative.exomiser.core.model.Gene;
 import org.monarchinitiative.exomiser.core.model.frequency.FrequencySource;
 import org.monarchinitiative.exomiser.simulations.cli.Utils;
 import org.monarchinitiative.exomiser.simulations.cli.simulators.SingleVcfSimulator;
 import org.monarchinitiative.exomiser.simulations.cli.simulators.VcfSimulator;
 import org.phenopackets.schema.v1.Phenopacket;
-import org.phenopackets.schema.v1.core.PhenotypicFeature;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.ApplicationArguments;
@@ -24,7 +23,6 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
-import java.util.stream.Collectors;
 
 //@Component
 public class LiricalCommand implements ApplicationRunner {
@@ -52,18 +50,6 @@ public class LiricalCommand implements ApplicationRunner {
         this.exomiser = exomiser;
     }
 
-    /**
-     * Only present (non-negated) {@link PhenotypicFeature}s are reported
-     *
-     * @param pp {@link Phenopacket} describing the proband
-     * @return list of HPO id strings representing subject's phenotype
-     */
-    static List<String> getPresentPhenotypesAsHpoStrings(Phenopacket pp) {
-        return pp.getPhenotypicFeaturesList().stream()
-                .filter(p -> !p.getNegated())
-                .map(p -> p.getType().getId())
-                .collect(Collectors.toList());
-    }
 
     @Override
     public void run(ApplicationArguments args) throws Exception {
@@ -127,7 +113,7 @@ public class LiricalCommand implements ApplicationRunner {
                     .genomeAssembly(GenomeAssembly.HG19)
                     .frequencySources(frequencySources)
                     .addFrequencyFilter(MAX_FREQ)
-                    .hpoIds(getPresentPhenotypesAsHpoStrings(pp))
+                    .hpoIds(Utils.getPresentPhenotypesAsHpoStrings(pp))
                     .addOmimPrioritiser()
                     .addHiPhivePrioritiser()
                     .build();

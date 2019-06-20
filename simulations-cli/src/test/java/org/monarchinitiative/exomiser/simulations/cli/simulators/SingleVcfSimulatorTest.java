@@ -7,7 +7,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
-
 import org.monarchinitiative.exomiser.simulations.cli.TestExamples;
 import org.monarchinitiative.exomiser.simulations.cli.Utils;
 import org.phenopackets.schema.v1.Phenopacket;
@@ -23,7 +22,8 @@ import static org.hamcrest.CoreMatchers.hasItem;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.monarchinitiative.exomiser.simulations.cli.TestExamples.*;
+import static org.monarchinitiative.exomiser.simulations.cli.TestExamples.hetVariant;
+import static org.monarchinitiative.exomiser.simulations.cli.TestExamples.individual;
 
 class SingleVcfSimulatorTest {
 
@@ -40,7 +40,7 @@ class SingleVcfSimulatorTest {
     @Test
     void initializationWorks() throws IOException {
         Phenopacket packet = TestExamples.makePhenopacketWithHetVariant(hetVariant(), individual("ID"));
-        VariantContext expected = Utils.phenopacketToVariantContexts(packet).get(0);
+        VariantContext expected = Utils.phenopacketToVariantContexts(packet.getVariantsList(), "ID").get(0);
 
         Path path = instance.simulateVcfWithPhenopacket(packet);
         List<VariantContext> variants = new ArrayList<>();
