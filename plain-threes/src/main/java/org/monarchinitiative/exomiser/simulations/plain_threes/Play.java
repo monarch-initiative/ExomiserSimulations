@@ -14,28 +14,4 @@ public class Play {
         SpringApplication.run(Play.class, args);
     }
 
-/*
-    @Bean
-    public SplicingEvaluator splicingEvaluator(SplicingTranscriptLocator splicingTranscriptLocator, ScorerFactory scorerFactory) {
-        return new SimpleSplicingEvaluator(splicingTranscriptLocator, scorerFactory);
-    }
-
-    @Bean
-    public SplicingTranscriptLocator splicingTranscriptLocator(SplicingParameters splicingParameters, GenomeCoordinatesFlipper genomeCoordinatesFlipper) {
-        return new NaiveSplicingTranscriptLocator(splicingParameters, genomeCoordinatesFlipper);
-    }
-
-    @Bean
-    public SplicingParameters splicingParameters(SplicingInformationContentAnnotator splicingInformationContentAnnotator) {
-        return splicingInformationContentAnnotator.getSplicingParameters();
-    }
-
-    @Bean
-    public GenomeCoordinatesFlipper genomeCoordinatesFlipper(Map<String, Integer> contigLengthMap) {
-        return new GenomeCoordinatesFlipper(contigLengthMap);
-    }
-
-*/
-
-
 }
