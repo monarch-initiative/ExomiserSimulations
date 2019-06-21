@@ -31,11 +31,10 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 /**
+ * This runner implements command `--simulate-case-and-run-exomiser`.
+ * <p>
  * Take a directory full of Phenopackets, simulate exome VCF based on a single VCF file, run Exomiser with and without
  * SPLICING score and write the results into given directory.
- * <p>
- *
- * </p>
  */
 @Component
 public class SimulateCaseAndRunExomiserCommand implements ApplicationRunner {
@@ -150,7 +149,7 @@ public class SimulateCaseAndRunExomiserCommand implements ApplicationRunner {
             Phenopacket pp;
             pp = Utils.readPhenopacket(phenopacketPath);
             if (pp.getSubject().getId().isEmpty()) {
-                LOGGER.warn("Phenopacket subject's ID must not be empty. Unable to continue");
+                LOGGER.error("Phenopacket subject's ID must not be empty. Unable to continue");
                 continue;
             }
 
@@ -170,6 +169,10 @@ public class SimulateCaseAndRunExomiserCommand implements ApplicationRunner {
             VcfSimulator simulator = new SingleVcfSimulator(templateVcfPath);
             Path vcfPath = simulator.simulateVcfWithPhenopacket(pp);
 
+            String ppFileName = phenopacketPath.toFile().getName();
+
+            // Exomiser results for given phenopacket will be written here
+            Path phenopacketOutputDir = Files.createDirectories(outputPath.resolve(ppFileName));
 
             // -------------------------------------------------------------------------------------
             //
@@ -199,7 +202,7 @@ public class SimulateCaseAndRunExomiserCommand implements ApplicationRunner {
 
             OutputSettings agnosticSettings = OutputSettings.builder()
                     .outputFormats(OUTPUT_FORMATS)
-                    .outputPrefix(outputPath.resolve(phenopacketPath.toFile().getName() + "_NO").toString())
+                    .outputPrefix(phenopacketOutputDir.resolve(ppFileName + "_NO").toString())
                     .build();
             AnalysisResultsWriter.writeToFile(splicingAgnosticAnalysis, splicingAgnosticResults, agnosticSettings);
 
@@ -225,7 +228,7 @@ public class SimulateCaseAndRunExomiserCommand implements ApplicationRunner {
 
             OutputSettings awareSettings = OutputSettings.builder()
                     .outputFormats(OUTPUT_FORMATS)
-                    .outputPrefix(outputPath.resolve(phenopacketPath.toFile().getName() + "_YES").toString())
+                    .outputPrefix(phenopacketOutputDir.resolve(ppFileName + "_YES").toString())
                     .build();
             AnalysisResultsWriter.writeToFile(splicingAwareAnalysis, splicingAwareResults, awareSettings);
 
@@ -259,17 +262,17 @@ public class SimulateCaseAndRunExomiserCommand implements ApplicationRunner {
 
         //
         if (!args.containsOption("vcf")) {
-            LOGGER.warn("Missing 'vcf' argument");
+            LOGGER.error("Missing 'vcf' argument");
             return false;
         }
         templateVcfPath = Paths.get(args.getOptionValues("vcf").get(0));
 
-        // Output file path - results
-        if (!args.containsOption("output")) {
-            LOGGER.warn("Missing '--output' argument");
+        // Output directory path - where to write all the results
+        if (!args.containsOption("output-exomiser")) {
+            LOGGER.error("Missing '--output-exomiser' argument");
             return false;
         }
-        outputPath = Paths.get(args.getOptionValues("output").get(0));
+        outputPath = Paths.get(args.getOptionValues("output-exomiser").get(0));
 
         return true;
     }

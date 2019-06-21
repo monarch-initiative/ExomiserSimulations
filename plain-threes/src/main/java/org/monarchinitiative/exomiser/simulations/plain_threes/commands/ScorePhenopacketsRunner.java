@@ -1,6 +1,5 @@
 package org.monarchinitiative.exomiser.simulations.plain_threes.commands;
 
-import com.google.protobuf.util.JsonFormat;
 import org.monarchinitiative.exomiser.simulations.plain_threes.Utils;
 import org.monarchinitiative.threes.core.data.SplicingTranscriptSource;
 import org.monarchinitiative.threes.core.model.GenomeCoordinates;
@@ -31,12 +30,11 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 /**
- * This runner takes directory with phenopackets (`--pp-dir=...`) as well as paths to individual phenopackets
- * (multiple `--pp=...`) as input. Variants from phenopackets are evaluated by 3S splicing evaluator and results are
- * written into TSV file.
+ * This runner implements command `--score-phenopackets`.
  * <p>
- * Run the command by adding `--score-phenopackets` to your command line.
- * </p>
+ * The runner takes directory with phenopackets (`--pp-dir=...`) as well as paths to individual phenopackets
+ * (multiple `--pp=...`) as input. Variants from phenopackets are evaluated by 3S splicing evaluator and results are
+ * written into TSV file (`--output-scores`).
  * <p>
  * <b>These properties have to be specified:</b>
  * <ul>
@@ -52,7 +50,7 @@ import java.util.stream.Collectors;
  * <ul>
  * <li><code>`--pp-dir`</code> - path to directory with JSON files corresponding to Phenopackets</li>
  * <li><code>`--pp`</code> - path to individual JSON file corresponding to Phenopacket</li>
- * <li><code>`--output`</code> - path where results in TSV format will be written</li>
+ * <li><code>`--output-scores`</code> - path where results in TSV format will be written</li>
  * </ul>
  * </p>
  */
@@ -60,8 +58,6 @@ import java.util.stream.Collectors;
 public class ScorePhenopacketsRunner implements ApplicationRunner {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ScorePhenopacketsRunner.class);
-
-    private static final JsonFormat.Parser PARSER = JsonFormat.parser();
 
     private static final String DELIMITER = "\t";
 
@@ -152,7 +148,7 @@ public class ScorePhenopacketsRunner implements ApplicationRunner {
                         SplicingPathogenicityData evaluation = splicingEvaluator.evaluate(splv, transcript, sequenceInterval);
                         StringBuilder builder = new StringBuilder()
                                 .append(phenopacketName).append(DELIMITER)
-                                .append(splv).append(DELIMITER)
+                                .append(String.format("%s:%d %s>%s", splv.getContig(), splv.getPos(), splv.getRef(), splv.getAlt())).append(DELIMITER)
                                 .append(transcript.getAccessionId()).append(DELIMITER)
                                 .append(evaluation.getMaxScore()); // no delimiter here!
 
@@ -188,12 +184,12 @@ public class ScorePhenopacketsRunner implements ApplicationRunner {
             phenopacketPaths.addAll(pps.stream().map(Paths::get).collect(Collectors.toList()));
         }
 
-        // Output file path - results
-        if (!args.containsOption("output")) {
-            LOGGER.error("Missing '--output' argument");
+        // Output file path - where to write TSV file with scores
+        if (!args.containsOption("output-scores")) {
+            LOGGER.error("Missing '--output-scores' argument");
             return false;
         }
-        outputPath = Paths.get(args.getOptionValues("output").get(0));
+        outputPath = Paths.get(args.getOptionValues("output-scores").get(0));
 
         return true;
     }
