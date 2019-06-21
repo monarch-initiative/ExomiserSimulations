@@ -11,6 +11,9 @@ This module performs simulations/evaluation of 3S code.
 ## Run all
 This command runs `--simulate-case-and-run-exomiser` and `--score-phenopackets`.
 
+**The point** of running both command is that you can evaluate *n* selected cases by Exomiser and also see how the individual splicing scorers did perform for each splicing variant.
+
+This way Exomiser result files will be created for each phenopacket in the `--output-exomiser` directory. Scores produced by each scorer will be written into TSV file at `--output-scores` path.
 
 ```bash
 java -jar plain-threes-0.2.0-SNAPSHOT.jar
