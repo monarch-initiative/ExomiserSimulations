@@ -24,7 +24,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
-import org.springframework.stereotype.Component;
 
 import java.io.BufferedWriter;
 import java.io.IOException;
@@ -37,7 +36,9 @@ import java.util.stream.Collectors;
 /**
  *
  */
-@Component
+//@Component
+@Deprecated // in favor of commands in the `plain-threes` modul
+
 public class ThreesEvaluatorCommand implements ApplicationRunner {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ThreesEvaluatorCommand.class);
@@ -50,8 +51,6 @@ public class ThreesEvaluatorCommand implements ApplicationRunner {
             .filter(ps -> !ps.equals(PathogenicitySource.SPLICING))
             .collect(Collectors.toSet());
 
-
-    private static final float QUAL_CUTOFF = 1500;
 
     private static final float FREQ_CUTOFF = 1.0F;
 

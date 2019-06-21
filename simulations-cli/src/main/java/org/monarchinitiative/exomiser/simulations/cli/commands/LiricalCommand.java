@@ -11,10 +11,12 @@ import org.monarchinitiative.exomiser.simulations.cli.Utils;
 import org.monarchinitiative.exomiser.simulations.cli.simulators.SingleVcfSimulator;
 import org.monarchinitiative.exomiser.simulations.cli.simulators.VcfSimulator;
 import org.phenopackets.schema.v1.Phenopacket;
+import org.phenopackets.schema.v1.core.PhenotypicFeature;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
+import org.springframework.stereotype.Component;
 
 import java.io.BufferedWriter;
 import java.io.File;
@@ -23,8 +25,9 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
+import java.util.stream.Collectors;
 
-//@Component
+@Component
 public class LiricalCommand implements ApplicationRunner {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(LiricalCommand.class);
@@ -50,6 +53,18 @@ public class LiricalCommand implements ApplicationRunner {
         this.exomiser = exomiser;
     }
 
+    /**
+     * Only present (non-negated) {@link PhenotypicFeature}s are reported
+     *
+     * @param pp {@link Phenopacket} describing the proband
+     * @return list of HPO id strings representing subject's phenotype
+     */
+    static List<String> getPresentPhenotypesAsHpoStrings(Phenopacket pp) {
+        return pp.getPhenotypicFeaturesList().stream()
+                .filter(p -> !p.getNegated())
+                .map(p -> p.getType().getId())
+                .collect(Collectors.toList());
+    }
 
     @Override
     public void run(ApplicationArguments args) throws Exception {
@@ -69,7 +84,8 @@ public class LiricalCommand implements ApplicationRunner {
             LOGGER.warn("Phenopacket file array is null. This should not happen");
             return;
         }
-        for (File phenopacketFilePath : fileArray) {
+        List<File> phenopackets = Arrays.asList(fileArray);
+        for (File phenopacketFilePath : phenopackets) {
             // -----------------------    READ PHENOPACKET    --------------------------------------
             LOGGER.info("Reading phenopacket from '{}'", phenopacketFilePath);
             Phenopacket pp;
@@ -84,7 +100,7 @@ public class LiricalCommand implements ApplicationRunner {
                 System.exit(1);
             }
             String entrezString = pp.getGenes(0).getId();
-            if (entrezString.contains("ENTREZ:")) {
+            if (entrezString.indexOf("ENTREZ:") >= 0) {
                 entrezString = entrezString.substring(7);
             }
             int entrezId = Integer.parseInt(entrezString);
@@ -113,7 +129,7 @@ public class LiricalCommand implements ApplicationRunner {
                     .genomeAssembly(GenomeAssembly.HG19)
                     .frequencySources(frequencySources)
                     .addFrequencyFilter(MAX_FREQ)
-                    .hpoIds(Utils.getPresentPhenotypesAsHpoStrings(pp))
+                    .hpoIds(getPresentPhenotypesAsHpoStrings(pp))
                     .addOmimPrioritiser()
                     .addHiPhivePrioritiser()
                     .build();
@@ -122,7 +138,6 @@ public class LiricalCommand implements ApplicationRunner {
             // -----------------------    RUN THE ANALYSIS AND WRITE THE RESULTS    ----------------
             LOGGER.info("Running the analysis");
             final AnalysisResults results = exomiser.run(analysis);
-            // TODO(pnrobinson) - evaluate
             List<Gene> genescores = results.getGenes();
             int rank = 0;
             for (Gene gene :genescores) {
@@ -153,7 +168,7 @@ public class LiricalCommand implements ApplicationRunner {
             int total_rank = 0;
 
             List<Integer> ranklist = new ArrayList<>(rankCountMap.values());
-            ranklist.sort(Collections.reverseOrder());
+            Collections.sort(ranklist, Collections.reverseOrder());
 
 
             for (Integer rank : ranklist) {

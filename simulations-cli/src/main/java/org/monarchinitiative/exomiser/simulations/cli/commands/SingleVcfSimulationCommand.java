@@ -1,8 +1,5 @@
 package org.monarchinitiative.exomiser.simulations.cli.commands;
 
-import org.monarchinitiative.exomiser.simulations.cli.Utils;
-import org.monarchinitiative.exomiser.simulations.cli.simulators.SingleVcfSimulator;
-import org.monarchinitiative.exomiser.simulations.cli.simulators.VcfSimulator;
 import org.monarchinitiative.exomiser.core.Exomiser;
 import org.monarchinitiative.exomiser.core.analysis.Analysis;
 import org.monarchinitiative.exomiser.core.analysis.AnalysisMode;
@@ -12,13 +9,15 @@ import org.monarchinitiative.exomiser.core.model.frequency.FrequencySource;
 import org.monarchinitiative.exomiser.core.writers.AnalysisResultsWriter;
 import org.monarchinitiative.exomiser.core.writers.OutputFormat;
 import org.monarchinitiative.exomiser.core.writers.OutputSettings;
+import org.monarchinitiative.exomiser.simulations.cli.Utils;
+import org.monarchinitiative.exomiser.simulations.cli.simulators.SingleVcfSimulator;
+import org.monarchinitiative.exomiser.simulations.cli.simulators.VcfSimulator;
 import org.phenopackets.schema.v1.Phenopacket;
 import org.phenopackets.schema.v1.core.PhenotypicFeature;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
-import org.springframework.stereotype.Component;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -28,7 +27,8 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-@Component
+//@Component
+@Deprecated
 public class SingleVcfSimulationCommand implements ApplicationRunner {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(SingleVcfSimulationCommand.class);

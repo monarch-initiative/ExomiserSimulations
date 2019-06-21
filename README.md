@@ -1,62 +1,27 @@
-# Eselator simulations
+# Exomiser simulations
 
-This repo contains code for running simulations using Exomiser version enriched with code for splicing analysis. The code will receive a `Phenopacket`, simulate an exome VCF and run the Exomiser analysis.
+This repo contains code for running simulations using Exomiser. The code usually receives one or more Phenopackets, simulate an exome and run the Exomiser analysis.
 
 Simulated exome VCF file is being created in a naive way at the moment. A single VCF file with variants is required and the variants from `Phenopacket` are spiked in between the variants.
 
-## Run Threes evaluator
+## Run *Lirical* simulations
 
-**Command line arguments:**
-- `--threes-evaluator` - flag required to run the command 
-- `--pp=/path/to/first_phenopacket --pp=/path/to/second_phenopacket [...]` - path to Phenopacket(s) in JSON format  
-- `--vcf=/path/to/template.vcf` - path to VCF file with variants, where variants from Phenopacket will be spiked in (`.gz` suffix is recognized automatically)  
-- `--output=/path/to/result_dir` - where to write the results
+You have to provide following arguments to run the code:
 
-Example run:
+**Command line argumets:**
 ```bash
-java -jar simulations-cli-0.2.0.jar --threes-evaluator --exomiser.data-directory=/path/to/exomiser-data/directory --pp=/path/to/phenopacket.json --vcf=/path/to/template.vcf --output=/path/to/output
+java -jar simulations-cli-0.2.0-SNAPSHOT.jar 
+--lirical 
+--spring.config.location=/path/to/application.properties 
+--pp=/path/to/phenopacket-dir 
+--vcf=/path/to/template.vcf
 ```
 
-## Inject phenopacket variants & phenotype into VCF file and run Exomiser analysis 
+- `--spring.config.location` should point to *application.properties* file with paths to Exomiser resources
 
-**Command line arguments:**
-- `--single-vcf-simulation` - flag required to run the command
-- `--exomiser.data-directory` - path to Exomiser data bundle
-- `--pp` - path to Phenopacket in JSON format
-- `--vcf` - path to VCF file with variants, where variants from Phenopacket will be spiked in
-- `--output` - prefix of the Exomiser result files
+## Run *3S*-related simulations
 
-Example run:
-```bash
-java -jar simulations-cli-0.2.0.jar --single-vcf-simulation --exomiser.data-directory=/path/to/exomiser-data/directory --pp=/path/to/phenopacket.json --vcf=/path/to/vcf --output=/path/to/output
-```
-
-**Limitations:**
-There are some hardcoded constraints present at the moment:
-
-- only runs with *RefSeq* transcripts and *hg19* genome assembly
-- only single sample analysis is supported
-- only one *naive* exome simulation method is available at the moment
-- Exomiser version with splicing code (`11.0.0-SP-1`) must be installed in your local Maven repo in order to compile & run the app
-- no information regarding expected mode of inheritance is extracted from the `Phenopacket` 
-
-## Run splice scorer
-
-**Command line arguments:**
-- `--splice-scorer` - flag required to run the command
-- `--exomiser.data-directory` - path to Exomiser data bundle
-- `--pp` - path to Phenopacket JSON file. REQUIRED, may be repeated
-- `--output` - path where result file will be written. REQUIRED
-- `--strategy` - choose from `{sigmoid, advanced}`
-
-Example run:
-```bash
-java -jar simulations-cli-0.2.0.jar --splice-scorer --exomiser.data-directory=/path/to/exomiser-data/directory --pp=/path/to/first_phenopacket.json --pp=/path/to/second_phenopacket.json --output=/path/to/output_file --strategy=advanced
-```
-
-**Limitations:**
-
-None at the moment.
+See the README file in the `plain-threes` module.
 
 ## Run splice scorers on ClinVar VCF
 
