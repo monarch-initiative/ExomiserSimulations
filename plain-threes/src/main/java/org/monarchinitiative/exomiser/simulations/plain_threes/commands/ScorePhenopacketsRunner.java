@@ -26,6 +26,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -135,17 +136,32 @@ public class ScorePhenopacketsRunner implements ApplicationRunner {
                             .build();
                     LOGGER.info("Evaluating variant {}", splv);
 
-                    // fetch nucleotide sequence neighboring the variant
-                    SequenceInterval sequenceInterval = genomeSequenceAccessor.fetchSequence(varCoordinates.getContig(),
-                            varCoordinates.getBegin() - 50, varCoordinates.getEnd() + 50,
-                            true);
 
                     // fetch all the transcripts overlapping with variant's position
                     List<SplicingTranscript> transcripts = splicingTranscriptSource.fetchTranscripts(varCoordinates.getContig(), varCoordinates.getBegin(), varCoordinates.getEnd());
 
+                    if (transcripts.isEmpty()) {
+                        LOGGER.warn("No transcript overlaps with variant {}", splv);
+                        break;
+                    }
+
+                    SplicingTranscript longestOp = transcripts.stream()
+                            .max(Comparator.comparing(SplicingTranscript::getTxLength))
+                            .get();
+
+
+                    // fetch nucleotide sequence neighboring the variant
+                    SequenceInterval sequenceInterval = genomeSequenceAccessor.fetchSequence(longestOp.getContig(),
+                            longestOp.getTxBegin() - 50, longestOp.getTxEnd() + 50,
+                            longestOp.getStrand());
+
+
                     // evaluate variant against all the transcripts & write out the scores
                     for (SplicingTranscript transcript : transcripts) {
+                        // evaluate
                         SplicingPathogenicityData evaluation = splicingEvaluator.evaluate(splv, transcript, sequenceInterval);
+
+                        // write out
                         StringBuilder builder = new StringBuilder()
                                 .append(phenopacketName).append(DELIMITER)
                                 .append(String.format("%s:%d %s>%s", splv.getContig(), splv.getPos(), splv.getRef(), splv.getAlt())).append(DELIMITER)
