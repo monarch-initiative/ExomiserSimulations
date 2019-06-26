@@ -1,9 +1,12 @@
 package org.monarchinitiative.exomiser.simulations.plain_threes.commands;
 
+import de.charite.compbio.jannovar.annotation.VariantEffect;
+import de.charite.compbio.jannovar.mendel.SubModeOfInheritance;
 import org.monarchinitiative.exomiser.core.Exomiser;
 import org.monarchinitiative.exomiser.core.analysis.Analysis;
 import org.monarchinitiative.exomiser.core.analysis.AnalysisMode;
 import org.monarchinitiative.exomiser.core.analysis.AnalysisResults;
+import org.monarchinitiative.exomiser.core.analysis.util.InheritanceModeOptions;
 import org.monarchinitiative.exomiser.core.genome.GenomeAssembly;
 import org.monarchinitiative.exomiser.core.model.GeneScore;
 import org.monarchinitiative.exomiser.core.model.frequency.FrequencySource;
@@ -50,9 +53,52 @@ public class SimulateCaseAndRunExomiserCommand implements ApplicationRunner {
             .collect(Collectors.toSet());
 
     /**
-     * For frequency filter, value as percentage.
+     * For frequency & inheritance filtering
      */
-    private static final float FREQ_CUTOFF = 1.0F;
+    private static final InheritanceModeOptions INHERITANCE_MODE_OPTIONS;
+
+    private static final EnumSet<FrequencySource> FREQUENCY_SOURCES = EnumSet.of(
+            FrequencySource.ESP_AFRICAN_AMERICAN, FrequencySource.ESP_ALL, FrequencySource.ESP_EUROPEAN_AMERICAN,
+            FrequencySource.THOUSAND_GENOMES,
+            FrequencySource.EXAC_AFRICAN_INC_AFRICAN_AMERICAN, FrequencySource.EXAC_AMERICAN, FrequencySource.EXAC_EAST_ASIAN, FrequencySource.EXAC_FINNISH,
+            FrequencySource.EXAC_NON_FINNISH_EUROPEAN, FrequencySource.EXAC_SOUTH_ASIAN, FrequencySource.EXAC_OTHER,
+            FrequencySource.UK10K, FrequencySource.TOPMED,
+            FrequencySource.GNOMAD_E_AFR, FrequencySource.GNOMAD_E_AMR,
+            // including the GNOMAD_E_ASJ and GNOMAD_G_ASJ reduces performance on 100K genomes so we disable it by default
+            //FrequencySource.GNOMAD_E_ASJ,
+            FrequencySource.GNOMAD_E_EAS, FrequencySource.GNOMAD_E_FIN,
+            FrequencySource.GNOMAD_E_NFE, FrequencySource.GNOMAD_E_OTH, FrequencySource.GNOMAD_E_SAS,
+            FrequencySource.GNOMAD_G_AFR, FrequencySource.GNOMAD_G_AMR,
+            //FrequencySource.GNOMAD_G_ASJ,
+            FrequencySource.GNOMAD_G_EAS, FrequencySource.GNOMAD_G_FIN,
+            FrequencySource.GNOMAD_G_NFE, FrequencySource.GNOMAD_G_OTH, FrequencySource.GNOMAD_G_SAS);
+
+    private static final EnumSet<VariantEffect> NON_CODING_EFFECTS = EnumSet.of(
+//            VariantEffect.FIVE_PRIME_UTR_EXON_VARIANT,
+//            VariantEffect.FIVE_PRIME_UTR_INTRON_VARIANT,
+//            VariantEffect.THREE_PRIME_UTR_EXON_VARIANT,
+//            VariantEffect.THREE_PRIME_UTR_INTRON_VARIANT,
+            VariantEffect.NON_CODING_TRANSCRIPT_EXON_VARIANT,
+            VariantEffect.NON_CODING_TRANSCRIPT_INTRON_VARIANT,
+//            VariantEffect.CODING_TRANSCRIPT_INTRON_VARIANT,
+            VariantEffect.UPSTREAM_GENE_VARIANT,
+            VariantEffect.DOWNSTREAM_GENE_VARIANT,
+            VariantEffect.INTERGENIC_VARIANT,
+            VariantEffect.REGULATORY_REGION_VARIANT
+    );
+
+    static {
+        Map<SubModeOfInheritance, Float> inheritanceModeFrequencyCutoffs = new EnumMap<>(SubModeOfInheritance.class);
+        // all frequencies are in percentage values
+        inheritanceModeFrequencyCutoffs.put(SubModeOfInheritance.AUTOSOMAL_DOMINANT, 0.1f);
+        inheritanceModeFrequencyCutoffs.put(SubModeOfInheritance.AUTOSOMAL_RECESSIVE_COMP_HET, 2.0f);
+        inheritanceModeFrequencyCutoffs.put(SubModeOfInheritance.AUTOSOMAL_RECESSIVE_HOM_ALT, 0.1f);
+        inheritanceModeFrequencyCutoffs.put(SubModeOfInheritance.X_DOMINANT, 0.1f);
+        inheritanceModeFrequencyCutoffs.put(SubModeOfInheritance.X_RECESSIVE_COMP_HET, 2.0f);
+        inheritanceModeFrequencyCutoffs.put(SubModeOfInheritance.X_RECESSIVE_HOM_ALT, 0.1f);
+        inheritanceModeFrequencyCutoffs.put(SubModeOfInheritance.MITOCHONDRIAL, 0.2f);
+        INHERITANCE_MODE_OPTIONS = InheritanceModeOptions.of(inheritanceModeFrequencyCutoffs);
+    }
 
     private static final Set<OutputFormat> OUTPUT_FORMATS = EnumSet.of(OutputFormat.HTML, OutputFormat.TSV_VARIANT, OutputFormat.VCF);
 
@@ -141,13 +187,13 @@ public class SimulateCaseAndRunExomiserCommand implements ApplicationRunner {
             return;
         }
 
+        VcfSimulator simulator = new SingleVcfSimulator(templateVcfPath);
 
         List<SimpleResults> results = new ArrayList<>();
         // -----------------------    FOR EACH PHENOPACKET    --------------------------------------
         for (Path phenopacketPath : phenopacketPaths) {
             LOGGER.info("Reading phenopacket from '{}'", phenopacketPath);
-            Phenopacket pp;
-            pp = Utils.readPhenopacket(phenopacketPath);
+            Phenopacket pp = Utils.readPhenopacket(phenopacketPath);
             if (pp.getSubject().getId().isEmpty()) {
                 LOGGER.error("Phenopacket subject's ID must not be empty. Unable to continue");
                 continue;
@@ -166,7 +212,6 @@ public class SimulateCaseAndRunExomiserCommand implements ApplicationRunner {
 
             // -----------------------    CREATE THE SIMULATED VCF FILE    -------------------------
             LOGGER.info("Creating simulated VCF file");
-            VcfSimulator simulator = new SingleVcfSimulator(templateVcfPath);
             Path vcfPath = simulator.simulateVcfWithPhenopacket(pp);
 
             String ppFileName = phenopacketPath.toFile().getName();
@@ -185,13 +230,18 @@ public class SimulateCaseAndRunExomiserCommand implements ApplicationRunner {
 
             Analysis splicingAgnosticAnalysis = exomiser.getAnalysisBuilder()
                     .genomeAssembly(GenomeAssembly.HG19)
-                    .analysisMode(AnalysisMode.PASS_ONLY)
                     .vcfPath(vcfPath)
                     .probandSampleName(sampleName)
-                    .frequencySources(FrequencySource.ALL_EXTERNAL_FREQ_SOURCES)
-                    .pathogenicitySources(PS_NOT_SPLICING) // all the pathogenicity sources except SPLICING & TEST
                     .hpoIds(phenotypesAsHpoStrings)
-                    .addFrequencyFilter(FREQ_CUTOFF)
+                    .analysisMode(AnalysisMode.PASS_ONLY)
+                    .inheritanceModes(INHERITANCE_MODE_OPTIONS)
+                    .frequencySources(FREQUENCY_SOURCES)
+                    .pathogenicitySources(PS_NOT_SPLICING) // all the pathogenicity sources except SPLICING & TEST
+                    // adds an mask for removing non-coding variants
+                    .addVariantEffectFilter(NON_CODING_EFFECTS)
+                    .addFailedVariantFilter()
+                    // frequency filter max will be automatically derived from the inheritance mode options
+                    .addFrequencyFilter()
                     .addPathogenicityFilter(true)
                     .addInheritanceFilter()
                     .addOmimPrioritiser()
@@ -211,13 +261,18 @@ public class SimulateCaseAndRunExomiserCommand implements ApplicationRunner {
             LOGGER.info("Creating splicing-aware analysis");
             Analysis splicingAwareAnalysis = exomiser.getAnalysisBuilder()
                     .genomeAssembly(GenomeAssembly.HG19)
-                    .analysisMode(AnalysisMode.PASS_ONLY)
                     .vcfPath(vcfPath)
                     .probandSampleName(sampleName)
+                    .hpoIds(phenotypesAsHpoStrings)
+                    .analysisMode(AnalysisMode.PASS_ONLY)
+                    .inheritanceModes(INHERITANCE_MODE_OPTIONS)
                     .frequencySources(FrequencySource.ALL_EXTERNAL_FREQ_SOURCES)
                     .pathogenicitySources(PS_W_SPLICING) // all the pathogenicity sources except TEST
-                    .hpoIds(phenotypesAsHpoStrings)
-                    .addFrequencyFilter(FREQ_CUTOFF)
+                    // adds an mask for removing non-coding variants
+                    .addVariantEffectFilter(NON_CODING_EFFECTS)
+                    .addFailedVariantFilter()
+                    // frequency filter max will be automatically derived from the inheritance mode options
+                    .addFrequencyFilter()
                     .addPathogenicityFilter(true)
                     .addInheritanceFilter()
                     .addOmimPrioritiser()
