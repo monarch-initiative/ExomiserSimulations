@@ -24,10 +24,7 @@ import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Comparator;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -56,9 +53,9 @@ import java.util.stream.Collectors;
  * </p>
  */
 @Component
-public class ScorePhenopacketsRunner implements ApplicationRunner {
+public class ScorePhenopacketsCommand implements ApplicationRunner {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(ScorePhenopacketsRunner.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(ScorePhenopacketsCommand.class);
 
     private static final String DELIMITER = "\t";
 
@@ -78,10 +75,30 @@ public class ScorePhenopacketsRunner implements ApplicationRunner {
      */
     private Path outputPath;
 
-    public ScorePhenopacketsRunner(GenomeSequenceAccessor genomeSequenceAccessor, SplicingTranscriptSource splicingTranscriptSource, SplicingEvaluator splicingEvaluator) {
+    public ScorePhenopacketsCommand(GenomeSequenceAccessor genomeSequenceAccessor,
+                                    SplicingTranscriptSource splicingTranscriptSource,
+                                    SplicingEvaluator splicingEvaluator) {
         this.genomeSequenceAccessor = genomeSequenceAccessor;
         this.splicingTranscriptSource = splicingTranscriptSource;
         this.splicingEvaluator = splicingEvaluator;
+    }
+
+    private static Map<String, String> getInfoFromVcfAllele(String info) {
+        Map<String, String> map = new HashMap<>();
+        // info looks like 'VCLASS=splicing;PATHOMECHANISM=splicing|5ss|disrupted;CONSEQUENCE=Exon skipping'
+        String[] field = info.split(";");
+        for (String tokens : field) {
+            // tokens look like 'VCLASS=splicing', ...
+            try {
+                String[] token = tokens.split("=");
+                map.put(token[0], token[1]);
+            } catch (ArrayIndexOutOfBoundsException e) {
+                // this happens in 'VCLASS=coding' variants that do not have the CONSEQUENCE field
+                LOGGER.warn("Invalid INFO field {}", info);
+            }
+        }
+
+        return map;
     }
 
     @Override
@@ -97,13 +114,20 @@ public class ScorePhenopacketsRunner implements ApplicationRunner {
         }
 
 
-
         try (BufferedWriter writer = Files.newBufferedWriter(outputPath)) {
             // prepare header
-            List<ScoringStrategy> scoringStrategies = Arrays.asList(ScoringStrategy.CANONICAL_DONOR, ScoringStrategy.CRYPTIC_DONOR, ScoringStrategy.CRYPTIC_DONOR_IN_CANONICAL_POSITION,
-                    ScoringStrategy.CANONICAL_ACCEPTOR, ScoringStrategy.CRYPTIC_ACCEPTOR, ScoringStrategy.CRYPTIC_ACCEPTOR_IN_CANONICAL_POSITION);
+            List<ScoringStrategy> scoringStrategies = Arrays.asList(
+                    // DONOR
+                    ScoringStrategy.CANONICAL_DONOR, ScoringStrategy.CRYPTIC_DONOR, ScoringStrategy.CRYPTIC_DONOR_IN_CANONICAL_POSITION,
+                    // ACCEPTOR
+                    ScoringStrategy.CANONICAL_ACCEPTOR, ScoringStrategy.CRYPTIC_ACCEPTOR, ScoringStrategy.CRYPTIC_ACCEPTOR_IN_CANONICAL_POSITION,
+                    // ESE/ESS
+                    ScoringStrategy.SMS
+            );
 
-            List<String> headerFields = new ArrayList<>(Arrays.asList("PHENOPACKET", "VARIANT", "TRANSCRIPT", "MAX_SCORE"));
+            List<String> headerFields = new ArrayList<>(Arrays.asList("PHENOPACKET",
+                    "VARIANT", "TRANSCRIPT", "VCLASS", "PATHOMECHANISM", "CONSEQUENCE",
+                    "MAX_SCORE"));
             for (ScoringStrategy strategy : scoringStrategies) {
                 headerFields.add(strategy.toString());
             }
@@ -137,7 +161,7 @@ public class ScorePhenopacketsRunner implements ApplicationRunner {
                             .setRef(vcfAllele.getRef())
                             .setAlt(vcfAllele.getAlt())
                             .build();
-                    LOGGER.info("Evaluating variant {}", splv);
+                    LOGGER.debug("Evaluating variant {}", splv);
 
 
                     // fetch all the transcripts overlapping with variant's position
@@ -158,6 +182,8 @@ public class ScorePhenopacketsRunner implements ApplicationRunner {
                             longestOp.getTxBegin() - 50, longestOp.getTxEnd() + 50,
                             longestOp.getStrand());
 
+                    // get VCLASS, PATHOMECHANISM, CONSEQUENCE
+                    Map<String, String> infos = getInfoFromVcfAllele(vcfAllele.getInfo());
 
                     // evaluate variant against all the transcripts & write out the scores
                     for (SplicingTranscript transcript : transcripts) {
@@ -167,8 +193,17 @@ public class ScorePhenopacketsRunner implements ApplicationRunner {
                         // write out
                         StringBuilder builder = new StringBuilder()
                                 .append(phenopacketName).append(DELIMITER)
+                                // VARIANT
                                 .append(String.format("%s:%d %s>%s", splv.getContig(), splv.getPos(), splv.getRef(), splv.getAlt())).append(DELIMITER)
+                                // TRANSCRIPT
                                 .append(transcript.getAccessionId()).append(DELIMITER)
+                                // VCLASS
+                                .append(infos.getOrDefault("VCLASS", "None")).append(DELIMITER)
+                                // PATHOMECHANISM
+                                .append(infos.getOrDefault("PATHOMECHANISM", "None")).append(DELIMITER)
+                                // CONSEQUENCE
+                                .append(infos.getOrDefault("CONSEQUENCE", "None")).append(DELIMITER)
+                                // MAX SCORE
                                 .append(evaluation.getMaxScore()); // no delimiter here!
 
                         // write out all the scores
@@ -182,6 +217,7 @@ public class ScorePhenopacketsRunner implements ApplicationRunner {
                 }
             }
         }
+
         LOGGER.info("くまくま━━━━━━ヽ（ ・(ｪ)・ ）ノ━━━━━━ !!!");
         LOGGER.info("                 Done!               ");
     }

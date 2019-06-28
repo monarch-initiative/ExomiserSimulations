@@ -1,7 +1,7 @@
 package org.monarchinitiative.exomiser.simulations.plain_threes.commands;
 
 import htsjdk.variant.variantcontext.VariantContext;
-import htsjdk.variant.vcf.*;
+import htsjdk.variant.vcf.VCFFileReader;
 import org.monarchinitiative.threes.core.data.SplicingTranscriptSource;
 import org.monarchinitiative.threes.core.model.GenomeCoordinates;
 import org.monarchinitiative.threes.core.model.SequenceInterval;
@@ -18,15 +18,16 @@ import org.springframework.boot.ApplicationRunner;
 import org.springframework.stereotype.Component;
 
 import java.io.BufferedWriter;
-import java.lang.reflect.Array;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.List;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
 
-import static htsjdk.variant.vcf.VCFEncoder.formatVCFDouble;
 
 /**
  * This command runs the `--clinvar-scorer` command.
@@ -53,6 +54,7 @@ public class ClinvarScorerCommand implements ApplicationRunner {
      */
     private static final Pattern LIKELY_BENIGN_CLNSIG = Pattern.compile(".*Likely_benign.*");
 
+    // ----------------------      DEPENDENCIES    ------------------------------------------------------------------
     private final GenomeSequenceAccessor genomeSequenceAccessor;
 
     private final SplicingTranscriptSource splicingTranscriptSource;
@@ -85,7 +87,8 @@ public class ClinvarScorerCommand implements ApplicationRunner {
             return;
         }
 
-
+        // Analyze only Benign variants when `--strict` flag is present.
+        // Analyze Benign & Likely benign variants without the `--strict` flag.
         Predicate<VariantContext> clnsigVariantMatcher = strict
                 ? vc -> {
             String clnsig = vc.getAttributeAsString("CLNSIG", "Crap");
@@ -107,12 +110,12 @@ public class ClinvarScorerCommand implements ApplicationRunner {
         );
 
         // ----------------- SCORE VARIANTS & WRITE TO FILE -------------------
-
         LOGGER.info("Scoring variants");
 
-        List<String> header = new ArrayList<>(Collections.singletonList("VARIANT"));
-        scoringStrategies.forEach(ss -> header.add(ss.toString()));
-
+        List<String> header = new ArrayList<>(Arrays.asList("VARIANT", "TX_ACC_ID", "MAX_SCORE"));
+        for (ScoringStrategy ss : scoringStrategies) {
+            header.add(ss.toString());
+        }
 
         try (VCFFileReader reader = new VCFFileReader(clinVarVcfPath.toFile(), false);
              BufferedWriter writer = Files.newBufferedWriter(outputPath)) {
@@ -180,8 +183,8 @@ public class ClinvarScorerCommand implements ApplicationRunner {
                             .append(evaluation.getMaxScore()); // no delimiter here!
 
                     // write out all the scores
-                    for (ScoringStrategy strategy : scoringStrategies) {
-                        builder.append(DELIMITER).append(evaluation.getScoresMap().getOrDefault(strategy, Double.NaN));
+                    for (ScoringStrategy ss : scoringStrategies) {
+                        builder.append(DELIMITER).append(evaluation.getScoresMap().getOrDefault(ss, Double.NaN));
                     }
 
                     writer.write(builder.toString());
@@ -206,11 +209,11 @@ public class ClinvarScorerCommand implements ApplicationRunner {
 
 
         // Output file path - results
-        if (!args.containsOption("output")) {
-            LOGGER.warn("Missing '--output' argument");
+        if (!args.containsOption("output-clinvar")) {
+            LOGGER.warn("Missing '--output-clinvar' argument");
             return false;
         }
-        outputPath = Paths.get(args.getOptionValues("output").get(0));
+        outputPath = Paths.get(args.getOptionValues("output-clinvar").get(0));
 
         // Strict flag
         strict = args.containsOption("strict");
@@ -218,79 +221,4 @@ public class ClinvarScorerCommand implements ApplicationRunner {
         return true;
     }
 
-
-    /**
-     * Methods related to variant context copied from HtsJDK {@link VCFEncoder} class.
-     */
-    private static class MethodsFromHTSJDK {
-
-
-        private static String mapToVcfInfoField(Map<String, Object> attributes, VCFHeader header) {
-            final Map<String, String> infoFields = new TreeMap<>();
-            for (final Map.Entry<String, Object> field : attributes.entrySet()) {
-//            We expect the ClinVar VCF to be well-formatted
-//            if (!header.hasInfoLine(field.getKey()))
-//                fieldIsMissingFromHeaderError(context, field.getKey(), "INFO");
-
-                final String outputValue = formatVCFField(field.getValue());
-                if (outputValue != null) infoFields.put(field.getKey(), outputValue);
-            }
-            return createInfoString(infoFields, header);
-        }
-
-        private static String formatVCFField(final Object val) {
-            final String result;
-            if (val == null)
-                result = VCFConstants.MISSING_VALUE_v4;
-            else if (val instanceof Double)
-                result = formatVCFDouble((Double) val);
-            else if (val instanceof Boolean)
-                result = (Boolean) val ? "" : null; // empty string for true, null for false
-            else if (val instanceof List) {
-                result = formatVCFField(((List) val).toArray());
-            } else if (val.getClass().isArray()) {
-                final int length = Array.getLength(val);
-                if (length == 0)
-                    return formatVCFField(null);
-                final StringBuilder sb = new StringBuilder(formatVCFField(Array.get(val, 0)));
-                for (int i = 1; i < length; i++) {
-                    sb.append(',');
-                    sb.append(formatVCFField(Array.get(val, i)));
-                }
-                result = sb.toString();
-            } else
-                result = val.toString();
-
-            return result;
-        }
-
-
-        /*
-         * Create the info string; assumes that no values are null
-         */
-        private static String createInfoString(final Map<String, String> infoFields, final VCFHeader header) {
-            if (infoFields.isEmpty()) {
-                return VCFConstants.EMPTY_INFO_FIELD;
-            }
-
-            StringBuilder builder = new StringBuilder();
-
-            boolean isFirst = true;
-            for (final Map.Entry<String, String> entry : infoFields.entrySet()) {
-                if (isFirst) isFirst = false;
-                else builder.append(VCFConstants.INFO_FIELD_SEPARATOR);
-
-                builder.append(entry.getKey());
-
-                if (!entry.getValue().equals("")) {
-                    final VCFInfoHeaderLine metaData = header.getInfoHeaderLine(entry.getKey());
-                    if (metaData == null || metaData.getCountType() != VCFHeaderLineCount.INTEGER || metaData.getCount() != 0) {
-                        builder.append('=');
-                        builder.append(entry.getValue());
-                    }
-                }
-            }
-            return builder.toString();
-        }
-    }
 }
