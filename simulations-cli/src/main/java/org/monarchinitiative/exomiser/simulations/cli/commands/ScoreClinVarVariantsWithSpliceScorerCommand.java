@@ -7,7 +7,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
-import org.springframework.stereotype.Component;
 
 import java.lang.reflect.Array;
 import java.nio.file.Path;
@@ -20,7 +19,8 @@ import java.util.regex.Pattern;
 
 import static htsjdk.variant.vcf.VCFEncoder.formatVCFDouble;
 
-@Component
+//@Component
+@Deprecated
 public class ScoreClinVarVariantsWithSpliceScorerCommand implements ApplicationRunner {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ScoreClinVarVariantsWithSpliceScorerCommand.class);

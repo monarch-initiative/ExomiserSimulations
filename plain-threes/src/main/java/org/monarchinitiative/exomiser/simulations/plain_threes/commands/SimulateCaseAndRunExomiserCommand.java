@@ -44,13 +44,15 @@ public class SimulateCaseAndRunExomiserCommand implements ApplicationRunner {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(SimulateCaseAndRunExomiserCommand.class);
 
-    private static final Set<PathogenicitySource> PS_W_SPLICING = Arrays.stream(PathogenicitySource.values())
-            .filter(ps -> !ps.equals(PathogenicitySource.TEST))
-            .collect(Collectors.toSet());
+    /**
+     * For splicing aware analysis - SPLICING, REVEL and MVP only.
+     */
+    private static final Set<PathogenicitySource> PS_W_SPLICING = EnumSet.of(PathogenicitySource.REVEL, PathogenicitySource.MVP, PathogenicitySource.SPLICING);
 
-    private static final Set<PathogenicitySource> PS_NOT_SPLICING = PS_W_SPLICING.stream()
-            .filter(ps -> !ps.equals(PathogenicitySource.SPLICING))
-            .collect(Collectors.toSet());
+    /**
+     * For splicing agnostic analysis - REVEL and MVP only.
+     */
+    private static final Set<PathogenicitySource> PS_NOT_SPLICING = EnumSet.of(PathogenicitySource.REVEL, PathogenicitySource.MVP);
 
     /**
      * For frequency & inheritance filtering
@@ -294,7 +296,8 @@ public class SimulateCaseAndRunExomiserCommand implements ApplicationRunner {
 
         writeResults(results, outputPath);
 
-        LOGGER.info("Done");
+        LOGGER.info("くまくま━━━━━━ヽ（ ・(ｪ)・ ）ノ━━━━━━ !!!");
+        LOGGER.info("                 Done!               ");
     }
 
 

@@ -96,9 +96,10 @@ public class ScorePhenopacketsRunner implements ApplicationRunner {
             return;
         }
 
-        LOGGER.info("Analyzing {} phenopackets", phenopacketPaths.size());
+
 
         try (BufferedWriter writer = Files.newBufferedWriter(outputPath)) {
+            // prepare header
             List<ScoringStrategy> scoringStrategies = Arrays.asList(ScoringStrategy.CANONICAL_DONOR, ScoringStrategy.CRYPTIC_DONOR, ScoringStrategy.CRYPTIC_DONOR_IN_CANONICAL_POSITION,
                     ScoringStrategy.CANONICAL_ACCEPTOR, ScoringStrategy.CRYPTIC_ACCEPTOR, ScoringStrategy.CRYPTIC_ACCEPTOR_IN_CANONICAL_POSITION);
 
@@ -111,6 +112,8 @@ public class ScorePhenopacketsRunner implements ApplicationRunner {
             writer.write(String.join(DELIMITER, headerFields));
             writer.newLine();
 
+            // analyze phenopackets
+            LOGGER.info("Analyzing {} phenopackets", phenopacketPaths.size());
             for (Path phenopacketPath : phenopacketPaths) {
                 Phenopacket phenopacket = Utils.readPhenopacket(phenopacketPath);
                 String phenopacketName = phenopacketPath.toFile().getName();
@@ -179,7 +182,8 @@ public class ScorePhenopacketsRunner implements ApplicationRunner {
                 }
             }
         }
-
+        LOGGER.info("くまくま━━━━━━ヽ（ ・(ｪ)・ ）ノ━━━━━━ !!!");
+        LOGGER.info("                 Done!               ");
     }
 
     private boolean parseCliArgs(ApplicationArguments args) {
