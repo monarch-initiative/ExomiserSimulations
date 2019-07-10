@@ -51,6 +51,7 @@ import java.util.stream.Collectors;
  * <li><code>`--output-scores`</code> - path where results in TSV format will be written</li>
  * </ul>
  * </p>
+ * <b>!! IMPORTANT !!</b> - this code does not work with other than RefSeq splicing transcript source.
  */
 @Component
 public class ScorePhenopacketsCommand implements ApplicationRunner {
@@ -89,16 +90,42 @@ public class ScorePhenopacketsCommand implements ApplicationRunner {
         String[] field = info.split(";");
         for (String tokens : field) {
             // tokens look like 'VCLASS=splicing', ...
-            try {
-                String[] token = tokens.split("=");
+
+            String[] token = tokens.split("=");
+            if (token.length == 1) {
+                map.put(token[0], "None");
+            } else if (token.length == 2) {
                 map.put(token[0], token[1]);
-            } catch (ArrayIndexOutOfBoundsException e) {
-                // this happens in 'VCLASS=coding' variants that do not have the CONSEQUENCE field
-                LOGGER.warn("Invalid INFO field {}", info);
             }
         }
 
         return map;
+    }
+
+    /**
+     * @return {@link Comparator} where the highest priority transcript is the one with the smallest integer value of the
+     * central part of the accession ID. The central part of the <em>NM_004004.2</em> is <em>004004</em>.
+     */
+    private static Comparator<? super SplicingTranscript> transcriptPriorityComparator() {
+        return (l, r) -> {
+            int leftInt = getCentralInt(l.getAccessionId());
+            int rightInt = getCentralInt(r.getAccessionId());
+            return Integer.compare(leftInt, rightInt);
+        };
+    }
+
+    /**
+     * @param accId String like <em>NM_004004.2</em>
+     * @return <em>4004</em> - the central integer part of the transcript accession id string
+     */
+    private static int getCentralInt(String accId) {
+        if (accId.matches("NM_\\d+.?\\d*")) {
+            int dotIdx = accId.indexOf(".");
+            String central = accId.substring(3, dotIdx);
+            return Integer.parseInt(central);
+        }
+
+        throw new RuntimeException("Weird accession ID " + accId);
     }
 
     @Override
@@ -165,55 +192,60 @@ public class ScorePhenopacketsCommand implements ApplicationRunner {
 
 
                     // fetch all the transcripts overlapping with variant's position
-                    List<SplicingTranscript> transcripts = splicingTranscriptSource.fetchTranscripts(varCoordinates.getContig(), varCoordinates.getBegin(), varCoordinates.getEnd());
+                    // retain the curated transcripts (accession id starts with 'NM_')
+                    List<SplicingTranscript> curatedTranscripts = splicingTranscriptSource.fetchTranscripts(varCoordinates.getContig(), varCoordinates.getBegin(), varCoordinates.getEnd()).stream()
+                            .filter(tx -> tx.getAccessionId().startsWith("NM_"))
+                            .collect(Collectors.toList());
 
-                    if (transcripts.isEmpty()) {
-                        LOGGER.warn("No transcript overlaps with variant {}", splv);
+                    if (curatedTranscripts.isEmpty()) {
+                        LOGGER.warn("No curated transcripts overlap with variant {}", splv);
                         break;
                     }
 
-                    SplicingTranscript longestOp = transcripts.stream()
-                            .max(Comparator.comparing(SplicingTranscript::getTxLength))
+
+                    SplicingTranscript transcript = curatedTranscripts.stream()
+                            .min(transcriptPriorityComparator())
                             .get();
 
 
                     // fetch nucleotide sequence neighboring the variant
-                    SequenceInterval sequenceInterval = genomeSequenceAccessor.fetchSequence(longestOp.getContig(),
-                            longestOp.getTxBegin() - 50, longestOp.getTxEnd() + 50,
-                            longestOp.getStrand());
+                    SequenceInterval sequenceInterval = genomeSequenceAccessor.fetchSequence(transcript.getContig(),
+                            transcript.getTxBegin() - 50, transcript.getTxEnd() + 50,
+                            transcript.getStrand());
 
                     // get VCLASS, PATHOMECHANISM, CONSEQUENCE
                     Map<String, String> infos = getInfoFromVcfAllele(vcfAllele.getInfo());
 
                     // evaluate variant against all the transcripts & write out the scores
-                    for (SplicingTranscript transcript : transcripts) {
-                        // evaluate
-                        SplicingPathogenicityData evaluation = splicingEvaluator.evaluate(splv, transcript, sequenceInterval);
+//                    for (SplicingTranscript transcript : curatedTranscripts) {
 
-                        // write out
-                        StringBuilder builder = new StringBuilder()
-                                .append(phenopacketName).append(DELIMITER)
-                                // VARIANT
-                                .append(String.format("%s:%d %s>%s", splv.getContig(), splv.getPos(), splv.getRef(), splv.getAlt())).append(DELIMITER)
-                                // TRANSCRIPT
-                                .append(transcript.getAccessionId()).append(DELIMITER)
-                                // VCLASS
-                                .append(infos.getOrDefault("VCLASS", "None")).append(DELIMITER)
-                                // PATHOMECHANISM
-                                .append(infos.getOrDefault("PATHOMECHANISM", "None")).append(DELIMITER)
-                                // CONSEQUENCE
-                                .append(infos.getOrDefault("CONSEQUENCE", "None")).append(DELIMITER)
-                                // MAX SCORE
-                                .append(evaluation.getMaxScore()); // no delimiter here!
+                    // evaluate
+                    SplicingPathogenicityData evaluation = splicingEvaluator.evaluate(splv, transcript, sequenceInterval);
 
-                        // write out all the scores
-                        for (ScoringStrategy strategy : scoringStrategies) {
-                            builder.append(DELIMITER).append(evaluation.getScoresMap().getOrDefault(strategy, Double.NaN));
-                        }
+                    // write out
+                    StringBuilder builder = new StringBuilder()
+                            .append(phenopacketName).append(DELIMITER)
+                            // VARIANT
+                            .append(String.format("%s:%d %s>%s", splv.getContig(), splv.getPos(), splv.getRef(), splv.getAlt())).append(DELIMITER)
+                            // TRANSCRIPT
+                            .append(transcript.getAccessionId()).append(DELIMITER)
+                            // VCLASS
+                            .append(infos.getOrDefault("VCLASS", "None")).append(DELIMITER)
+                            // PATHOMECHANISM
+                            .append(infos.getOrDefault("PATHOMECHANISM", "None")).append(DELIMITER)
+                            // CONSEQUENCE
+                            .append(infos.getOrDefault("CONSEQUENCE", "None")).append(DELIMITER)
+                            // MAX SCORE
+                            .append(evaluation.getMaxScore()); // no delimiter here!
 
-                        writer.write(builder.toString());
-                        writer.newLine();
+                    // write out all the scores
+                    for (ScoringStrategy strategy : scoringStrategies) {
+                        builder.append(DELIMITER).append(evaluation.getScoresMap().getOrDefault(strategy, Double.NaN));
                     }
+
+                    writer.write(builder.toString());
+                    writer.newLine();
+//                    }
                 }
             }
         }
@@ -228,6 +260,7 @@ public class ScorePhenopacketsCommand implements ApplicationRunner {
         if (args.containsOption("pp-dir")) {
             String ppDirString = args.getOptionValues("pp-dir").get(0);
             Path ppDirPath = Paths.get(ppDirString);
+            LOGGER.info("Reading phenopackets from '{}'", ppDirPath);
             File[] jsonFiles = ppDirPath.toFile().listFiles(f -> f.getName().endsWith(".json"));
             if (jsonFiles == null) {
                 break noJsonFiles;
