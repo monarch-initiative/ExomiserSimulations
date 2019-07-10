@@ -6,9 +6,9 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @EnableExomiser
 @SpringBootApplication
-public class Play {
+public class Main {
 
     public static void main(String[] args) {
-        SpringApplication.run(Play.class, args);
+        SpringApplication.run(Main.class, args);
     }
 }
