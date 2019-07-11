@@ -27,6 +27,8 @@ import java.nio.file.Paths;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import static java.util.Map.Entry.comparingByKey;
+
 @Component
 public class LiricalCommand implements ApplicationRunner {
     private static final Logger LOGGER = LoggerFactory.getLogger(LiricalCommand.class);
@@ -137,57 +139,56 @@ public class LiricalCommand implements ApplicationRunner {
             // -----------------------    RUN THE ANALYSIS AND WRITE THE RESULTS    ----------------
             LOGGER.info("Running the analysis");
             final AnalysisResults results = exomiser.run(analysis);
-            // TODO(pnrobinson) - evaluate
-            List<Gene> genescores = results.getGenes();
-            int rank = 0;
-            for (Gene gene :genescores) {
-                int entrez = gene.getEntrezGeneID();
-                String symb = gene.getGeneSymbol();
-                rank++;
-                if (entrez == entrezId) {
-                    // this is the rank of the target gene
-                    String res = String.format("[INFO] Rank of gene %s [%s;%s] was %d", symb,diseaseLabel,diseaseId,rank);
-                    System.out.println(res);
-                    resultlist.add(res);
-                    rankCountMap.putIfAbsent(rank,0);
-                    int c = 1 + rankCountMap.get(rank);
-                    rankCountMap.put(rank,c);
-                }
-            }
-
+            int rank = getRankOfGene(results,entrezId);
+            // this is the rank of the target gene
+            String res = String.format("[INFO] Rank of gene %s [%s;%s] was %d", symbol,diseaseLabel,diseaseId,rank);
+            System.out.println(res);
+            resultlist.add(res);
+            rankCountMap.putIfAbsent(rank,0);
+            int c = 1 + rankCountMap.get(rank);
+            rankCountMap.put(rank,c);
             System.out.println(results);
         }
         printOutSimulationResults();
     }
 
 
-    private void printOutSimulationResults() {
-        try {
-            BufferedWriter writer = new BufferedWriter(new FileWriter("exomiser_sim_results.txt"));
-            int N = 0;
-            int total_rank = 0;
 
-            List<Integer> ranklist = new ArrayList<>(rankCountMap.values());
-            Collections.sort(ranklist,Collections.reverseOrder());
-
-
-            for (Integer rank : ranklist) {
-                int times = rankCountMap.get(rank);
-                N += times;
-                total_rank += rank*times;
-                String perc = String.format(" (%.2f%%)",100.0*times/rankCountMap.size());
-                writer.write("rank " + rank + ": " + times + " cases " + perc + "\n");
+    private int getRankOfGene(AnalysisResults ares,int targetEntrezGeneId) {
+        List<Gene> genescores = ares.getGenes();
+        int N = genescores.size();
+        int rank = 0;
+        for (Gene gene :genescores) {
+            int entrez = gene.getEntrezGeneID();
+            String symb = gene.getGeneSymbol();
+            rank++;
+            if (entrez == targetEntrezGeneId) {
+                // this is the rank of the target gene
+               return rank;
             }
-            double avg_rank = (double)total_rank/N;
-            writer.write("average rank " + avg_rank +  ".\n" );
-            for (String line : resultlist) {
-                writer.write(line + "\n");
-            }
-            writer.close();
-
-        } catch (IOException e) {
-            e.printStackTrace();
         }
+        return N+1; // tied for the rank above the worst rank of
+        // all genes that were actually ranked.
+    }
+
+
+    private void printOutSimulationResults() throws  IOException{
+        BufferedWriter writer = new BufferedWriter(new FileWriter("exomiser_sim_results.txt"));
+
+        // sort the map by values first
+        Map<Integer, Integer> sorted = this.rankCountMap
+                .entrySet()
+                .stream()
+                //.sorted(comparingByValue())
+                .sorted(comparingByKey())
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, (e1, e2) -> e2,
+                        LinkedHashMap::new));
+        int total = this.rankCountMap.values().stream().mapToInt(i->i).sum();
+        for (Map.Entry<Integer, Integer> e : sorted.entrySet()) {
+            System.out.println(String.format("%s: %d (%.1f%%)", e.getKey(), e.getValue(),(100.0*e.getValue()/total)));
+            writer.write(String.format("%s: %d (%.1f%%)", e.getKey(), e.getValue(),(100.0*e.getValue()/total)) + "\n");
+        }
+        writer.close();
     }
 
 
