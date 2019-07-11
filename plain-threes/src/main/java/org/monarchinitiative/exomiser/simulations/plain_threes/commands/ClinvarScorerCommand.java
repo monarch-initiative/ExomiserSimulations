@@ -2,6 +2,7 @@ package org.monarchinitiative.exomiser.simulations.plain_threes.commands;
 
 import htsjdk.variant.variantcontext.VariantContext;
 import htsjdk.variant.vcf.VCFFileReader;
+import org.monarchinitiative.exomiser.simulations.plain_threes.Utils;
 import org.monarchinitiative.threes.core.data.SplicingTranscriptSource;
 import org.monarchinitiative.threes.core.model.GenomeCoordinates;
 import org.monarchinitiative.threes.core.model.SequenceInterval;
@@ -23,10 +24,10 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Comparator;
 import java.util.List;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 
 /**
@@ -151,45 +152,46 @@ public class ClinvarScorerCommand implements ApplicationRunner {
                         .build();
                 LOGGER.info("Evaluating {}", splv);
 
-
                 // fetch all the transcripts overlapping with variant's position
-                List<SplicingTranscript> transcripts = splicingTranscriptSource.fetchTranscripts(varCoordinates.getContig(), varCoordinates.getBegin(), varCoordinates.getEnd());
+                // retain the curated transcripts (accession id starts with 'NM_')
+                List<SplicingTranscript> curatedTranscripts = splicingTranscriptSource.fetchTranscripts(varCoordinates.getContig(), varCoordinates.getBegin(), varCoordinates.getEnd()).stream()
+                        .filter(tx -> tx.getAccessionId().startsWith("NM_"))
+                        .collect(Collectors.toList());
 
-                if (transcripts.isEmpty()) {
-                    LOGGER.warn("No transcript overlaps with variant {}", splv);
+                if (curatedTranscripts.isEmpty()) {
+                    LOGGER.warn("No curated transcript overlaps with variant {}", splv);
                     continue;
                 }
 
-                SplicingTranscript longestOp = transcripts.stream()
-                        .max(Comparator.comparing(SplicingTranscript::getTxLength))
+
+                SplicingTranscript transcript = curatedTranscripts.stream()
+                        .min(Utils.transcriptPriorityComparator())
                         .get();
 
 
                 // fetch nucleotide sequence neighboring the variant
-                SequenceInterval sequenceInterval = genomeSequenceAccessor.fetchSequence(longestOp.getContig(),
-                        longestOp.getTxBegin() - 50, longestOp.getTxEnd() + 50,
-                        longestOp.getStrand());
+                SequenceInterval sequenceInterval = genomeSequenceAccessor.fetchSequence(transcript.getContig(),
+                        transcript.getTxBegin() - 50, transcript.getTxEnd() + 50,
+                        transcript.getStrand());
 
 
-                // evaluate variant against all the transcripts & write out the scores
-                for (SplicingTranscript transcript : transcripts) {
-                    // evaluate
-                    SplicingPathogenicityData evaluation = splicingEvaluator.evaluate(splv, transcript, sequenceInterval);
+                // --- EVALUATE VARIANT AGAINST THE TRANSCRIPT & WRITE OUT THE SCORES ---
+                // evaluate
+                SplicingPathogenicityData evaluation = splicingEvaluator.evaluate(splv, transcript, sequenceInterval);
 
-                    // write out
-                    StringBuilder builder = new StringBuilder()
-                            .append(String.format("%s:%d %s>%s", splv.getContig(), splv.getPos(), splv.getRef(), splv.getAlt())).append(DELIMITER)
-                            .append(transcript.getAccessionId()).append(DELIMITER)
-                            .append(evaluation.getMaxScore()); // no delimiter here!
+                // write out
+                StringBuilder builder = new StringBuilder()
+                        .append(String.format("%s:%d %s>%s", splv.getContig(), splv.getPos(), splv.getRef(), splv.getAlt())).append(DELIMITER)
+                        .append(transcript.getAccessionId()).append(DELIMITER)
+                        .append(evaluation.getMaxScore()); // no delimiter here!
 
-                    // write out all the scores
-                    for (ScoringStrategy ss : scoringStrategies) {
-                        builder.append(DELIMITER).append(evaluation.getScoresMap().getOrDefault(ss, Double.NaN));
-                    }
-
-                    writer.write(builder.toString());
-                    writer.newLine();
+                // write out all the scores
+                for (ScoringStrategy ss : scoringStrategies) {
+                    builder.append(DELIMITER).append(evaluation.getScoresMap().getOrDefault(ss, Double.NaN));
                 }
+
+                writer.write(builder.toString());
+                writer.newLine();
             }
 
             LOGGER.info("くまくま━━━━━━ヽ（ ・(ｪ)・ ）ノ━━━━━━ !!!");

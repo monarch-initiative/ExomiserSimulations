@@ -102,31 +102,6 @@ public class ScorePhenopacketsCommand implements ApplicationRunner {
         return map;
     }
 
-    /**
-     * @return {@link Comparator} where the highest priority transcript is the one with the smallest integer value of the
-     * central part of the accession ID. The central part of the <em>NM_004004.2</em> is <em>004004</em>.
-     */
-    private static Comparator<? super SplicingTranscript> transcriptPriorityComparator() {
-        return (l, r) -> {
-            int leftInt = getCentralInt(l.getAccessionId());
-            int rightInt = getCentralInt(r.getAccessionId());
-            return Integer.compare(leftInt, rightInt);
-        };
-    }
-
-    /**
-     * @param accId String like <em>NM_004004.2</em>
-     * @return <em>4004</em> - the central integer part of the transcript accession id string
-     */
-    private static int getCentralInt(String accId) {
-        if (accId.matches("NM_\\d+.?\\d*")) {
-            int dotIdx = accId.indexOf(".");
-            String central = accId.substring(3, dotIdx);
-            return Integer.parseInt(central);
-        }
-
-        throw new RuntimeException("Weird accession ID " + accId);
-    }
 
     @Override
     public void run(ApplicationArguments args) throws Exception {
@@ -198,13 +173,13 @@ public class ScorePhenopacketsCommand implements ApplicationRunner {
                             .collect(Collectors.toList());
 
                     if (curatedTranscripts.isEmpty()) {
-                        LOGGER.warn("No curated transcripts overlap with variant {}", splv);
-                        break;
+                        LOGGER.warn("No curated transcript overlaps with variant {}", splv);
+                        continue;
                     }
 
 
                     SplicingTranscript transcript = curatedTranscripts.stream()
-                            .min(transcriptPriorityComparator())
+                            .min(Utils.transcriptPriorityComparator())
                             .get();
 
 
@@ -216,9 +191,7 @@ public class ScorePhenopacketsCommand implements ApplicationRunner {
                     // get VCLASS, PATHOMECHANISM, CONSEQUENCE
                     Map<String, String> infos = getInfoFromVcfAllele(vcfAllele.getInfo());
 
-                    // evaluate variant against all the transcripts & write out the scores
-//                    for (SplicingTranscript transcript : curatedTranscripts) {
-
+                    // --- EVALUATE VARIANT AGAINST THE TRANSCRIPT & WRITE OUT THE SCORES ---
                     // evaluate
                     SplicingPathogenicityData evaluation = splicingEvaluator.evaluate(splv, transcript, sequenceInterval);
 
@@ -245,7 +218,6 @@ public class ScorePhenopacketsCommand implements ApplicationRunner {
 
                     writer.write(builder.toString());
                     writer.newLine();
-//                    }
                 }
             }
         }

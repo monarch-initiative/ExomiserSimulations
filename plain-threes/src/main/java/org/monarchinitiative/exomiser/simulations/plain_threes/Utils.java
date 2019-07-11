@@ -5,6 +5,7 @@ import htsjdk.variant.variantcontext.Allele;
 import htsjdk.variant.variantcontext.GenotypeBuilder;
 import htsjdk.variant.variantcontext.VariantContext;
 import htsjdk.variant.variantcontext.VariantContextBuilder;
+import org.monarchinitiative.threes.core.model.SplicingTranscript;
 import org.phenopackets.schema.v1.Phenopacket;
 import org.phenopackets.schema.v1.core.OntologyClass;
 import org.phenopackets.schema.v1.core.PhenotypicFeature;
@@ -167,4 +168,30 @@ public final class Utils {
 
         return String.join(";", pathomechanisms);
     }
+    /**
+     * @return {@link Comparator} where the highest priority transcript is the one with the smallest integer value of the
+     * central part of the accession ID. The central part of the <em>NM_004004.2</em> is <em>004004</em>.
+     */
+    public static Comparator<? super SplicingTranscript> transcriptPriorityComparator() {
+        return (l, r) -> {
+            int leftInt = getCentralInt(l.getAccessionId());
+            int rightInt = getCentralInt(r.getAccessionId());
+            return Integer.compare(leftInt, rightInt);
+        };
+    }
+
+    /**
+     * @param accId String like <em>NM_004004.2</em>
+     * @return <em>4004</em> - the central integer part of the transcript accession id string
+     */
+    private static int getCentralInt(String accId) {
+        if (accId.matches("NM_\\d+.?\\d*")) {
+            int dotIdx = accId.indexOf(".");
+            String central = accId.substring(3, dotIdx);
+            return Integer.parseInt(central);
+        }
+
+        throw new RuntimeException("Weird accession ID " + accId);
+    }
+
 }
