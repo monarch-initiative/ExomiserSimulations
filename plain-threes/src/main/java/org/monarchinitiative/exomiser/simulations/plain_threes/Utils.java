@@ -90,11 +90,9 @@ public final class Utils {
             if (zygosity.equals(HET)) {
                 // 1x REF + 1x ALT
                 genotypeBuilder.alleles(Arrays.asList(allAlleles.get(0), allAlleles.get(1)));
-            } else if (zygosity.equals(HOM_ALT)) {
+            } else if (zygosity.equals(HOM_ALT) || zygosity.equals(HEMIZYGOUS)) {
                 // 2x ALT
                 genotypeBuilder.alleles(Arrays.asList(allAlleles.get(1), allAlleles.get(1)));
-            } else if (zygosity.equals(HEMIZYGOUS)) {
-                genotypeBuilder.alleles(Collections.singletonList(allAlleles.get(1)));
             } else {
                 LOGGER.warn("Unknown genotype '{}'. Tried HET, HOM_ALT, HEMIZYGOUS", zygosity);
                 continue;
@@ -123,6 +121,7 @@ public final class Utils {
                     .genotypes(genotypeBuilder.make())
                     .attributes(infoFields)
                     .noID()
+                    .log10PError(-100)
                     .make();
 
             variantContexts.add(vc);
