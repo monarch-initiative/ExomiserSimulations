@@ -16,7 +16,7 @@ This command runs `--simulate-case-and-run-exomiser` and `--score-phenopackets`.
 This way Exomiser result files will be created for each phenopacket in the `--output-exomiser` directory. Scores produced by each scorer will be written into TSV file at `--output-scores` path.
 
 ```bash
-java -jar plain-threes-0.2.0-SNAPSHOT.jar
+java -jar plain-threes-0.2.1.jar
 --simulate-case-and-run-exomiser
 --score-phenopackets
 --spring.config.location=/path/to/application.properties
@@ -29,7 +29,7 @@ java -jar plain-threes-0.2.0-SNAPSHOT.jar
 ## Score phenopackets
 
 ```bash
-java -jar plain-threes-0.2.0-SNAPSHOT.jar
+java -jar plain-threes-0.2.1.jar
 --score-phenopackets
 --spring.config.location=/path/to/application.properties
 --pp-dir=/path/to/phenopackets/dir
@@ -41,7 +41,7 @@ java -jar plain-threes-0.2.0-SNAPSHOT.jar
 ## Simulate case and run Exomiser
 
 ```bash
-java -jar plain-threes-0.2.0-SNAPSHOT.jar
+java -jar plain-threes-0.2.1.jar
 --simulate-case-and-run-exomiser
 --spring.config.location=/path/to/application.properties
 --pp-dir=/path/to/phenopackets/dir
@@ -53,7 +53,7 @@ java -jar plain-threes-0.2.0-SNAPSHOT.jar
 ## Clinvar scorer
 
 ```bash
-java -jar plain-threes-0.2.0-SNAPSHOT.jar 
+java -jar plain-threes-0.2.1.jar 
 --clinvar-scorer
 --spring.config.location=/path/to/application.properties
 --clinvar-vcf=/path/to/clinvar.vcf.gz
@@ -68,7 +68,7 @@ java -jar plain-threes-0.2.0-SNAPSHOT.jar
 ## Move phenopackets without phenotype
 
 ```bash
-java -jar plain-threes-0.2.0-SNAPSHOT.jar
+java -jar plain-threes-0.2.1.jar
 --move-phenopackets-without-phenotype
 --spring.config.location=/path/to/application.properties
 --pp-dir=/path/to/phenopackets-dir

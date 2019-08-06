@@ -10,7 +10,7 @@ You have to provide following arguments to run the code:
 
 **Command line argumets:**
 ```bash
-java -jar simulations-cli-0.2.0-SNAPSHOT.jar 
+java -jar simulations-cli-0.2.1.jar 
 --lirical 
 --spring.config.location=/path/to/application.properties 
 --pp=/path/to/phenopacket-dir 
