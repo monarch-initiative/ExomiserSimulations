@@ -24,12 +24,8 @@ import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.stereotype.Component;
 
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.io.*;
+import java.nio.file.*;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -89,6 +85,8 @@ public class SimulateCaseAndRunExomiserCommand implements ApplicationRunner {
             VariantEffect.REGULATORY_REGION_VARIANT
     );
 
+    private static final Set<OutputFormat> OUTPUT_FORMATS = EnumSet.of(OutputFormat.HTML, OutputFormat.TSV_VARIANT, OutputFormat.VCF);
+
     static {
         Map<SubModeOfInheritance, Float> inheritanceModeFrequencyCutoffs = new EnumMap<>(SubModeOfInheritance.class);
         // all frequencies are in percentage values
@@ -101,8 +99,6 @@ public class SimulateCaseAndRunExomiserCommand implements ApplicationRunner {
         inheritanceModeFrequencyCutoffs.put(SubModeOfInheritance.MITOCHONDRIAL, 0.2f);
         INHERITANCE_MODE_OPTIONS = InheritanceModeOptions.of(inheritanceModeFrequencyCutoffs);
     }
-
-    private static final Set<OutputFormat> OUTPUT_FORMATS = EnumSet.of(OutputFormat.HTML, OutputFormat.TSV_VARIANT, OutputFormat.VCF);
 
     // ------------------------------      DEPENDENCIES      ------------------------------------------
     private final Exomiser exomiser;
@@ -162,21 +158,6 @@ public class SimulateCaseAndRunExomiserCommand implements ApplicationRunner {
                 .build();
     }
 
-    private static void writeResults(List<SimpleResults> results, Path outputDirPath) throws IOException {
-        String delimiter = "\t";
-        try (final BufferedWriter writer = Files.newBufferedWriter(outputDirPath.resolve("ranks.tsv"))) {
-            writer.write(String.join(delimiter, Arrays.asList("CASE", "WITH_SPLICING", "WITHOUT_SPLICING", "PATHOMECHANISM")));
-            writer.newLine();
-            for (SimpleResults result : results) {
-                writer.write(result.getCaseName() + delimiter
-                        + result.getRankWithSplicing() + delimiter
-                        + result.getRankNormal() + delimiter
-                        + result.getSplicingPathomechanism());
-                writer.newLine();
-            }
-        }
-    }
-
     @Override
     public void run(ApplicationArguments args) throws Exception {
         if (!args.containsOption("simulate-case-and-run-exomiser")) {
@@ -191,110 +172,129 @@ public class SimulateCaseAndRunExomiserCommand implements ApplicationRunner {
 
         VcfSimulator simulator = new SingleVcfSimulator(templateVcfPath);
 
-        List<SimpleResults> results = new ArrayList<>();
-        // -----------------------    FOR EACH PHENOPACKET    --------------------------------------
-        for (Path phenopacketPath : phenopacketPaths) {
-            LOGGER.info("Reading phenopacket from '{}'", phenopacketPath);
-            Phenopacket pp = Utils.readPhenopacket(phenopacketPath);
-            if (pp.getSubject().getId().isEmpty()) {
-                LOGGER.error("Phenopacket subject's ID must not be empty. Unable to continue");
-                continue;
+        Path ranksPath = outputPath.resolve("ranks.tsv");
+        try (BufferedWriter resultWriter = Files.newBufferedWriter(ranksPath)) {
+            // write header of the ranks file
+            String delimiter = "\t";
+            resultWriter.write(String.join(delimiter, Arrays.asList("CASE", "WITH_SPLICING", "WITHOUT_SPLICING", "PATHOMECHANISM")));
+            resultWriter.newLine();
+
+            // -----------------------    FOR EACH PHENOPACKET    --------------------------------------
+            for (Path phenopacketPath : phenopacketPaths) {
+                LOGGER.info("Reading phenopacket from '{}'", phenopacketPath);
+                Phenopacket pp = Utils.readPhenopacket(phenopacketPath);
+                if (pp.getSubject().getId().isEmpty()) {
+                    LOGGER.error("Phenopacket subject's ID must not be empty. Unable to continue");
+                    continue;
+                }
+
+                if (pp.getGenesCount() != 1) {
+                    LOGGER.error("Phenopackets used for simulation MUST have exactly one gene");
+                    continue;
+                }
+
+                if (pp.getDiseasesCount() != 1) {
+                    LOGGER.error("Phenopackets used for simulation MUST have exactly one disease");
+                    continue;
+                }
+
+
+                // -----------------------    CREATE THE SIMULATED VCF FILE    -------------------------
+                LOGGER.info("Creating simulated VCF file");
+                Path vcfPath = simulator.simulateVcfWithPhenopacket(pp);
+
+                String ppFileName = phenopacketPath.toFile().getName();
+
+                // Exomiser results for given phenopacket will be written here
+                Path phenopacketOutputDir = Files.createDirectories(this.outputPath.resolve(ppFileName));
+
+                // -------------------------------------------------------------------------------------
+                //
+                // First run the analysis without splicing scores
+                //
+                LOGGER.info("\n\n\u266B\u266C\u266A\u266B\u266C\u266A\u266B\u266C\u266A\u266B\u266C\u266A\u266B\u266C\u266A\u266B\u266C\u266A\u266B\u266C\u266A\u266B\u266C\u266A" +
+                        "   Creating splicing-agnostic analysis   " +
+                        "\u266B\u266C\u266A\u266B\u266C\u266A\u266B\u266C\u266A\u266B\u266C\u266A\u266B\u266C\u266A\u266B\u266C\u266A\u266B\u266C\u266A\u266B\u266C\u266A\n");
+                String sampleName = pp.getSubject().getId().replaceAll("\\s+", "_");
+
+                List<String> phenotypesAsHpoStrings = Utils.getPresentPhenotypesAsHpoStrings(pp);
+
+                Analysis splicingAgnosticAnalysis = exomiser.getAnalysisBuilder()
+                        .genomeAssembly(GenomeAssembly.HG19)
+                        .vcfPath(vcfPath)
+                        .probandSampleName(sampleName)
+                        .hpoIds(phenotypesAsHpoStrings)
+                        .analysisMode(AnalysisMode.PASS_ONLY)
+                        .inheritanceModes(INHERITANCE_MODE_OPTIONS)
+                        .frequencySources(FREQUENCY_SOURCES)
+                        .pathogenicitySources(PS_NOT_SPLICING) // all the pathogenicity sources except SPLICING & TEST
+                        // adds an mask for removing non-coding variants
+                        .addQualityFilter(200)
+                        .addVariantEffectFilter(NON_CODING_EFFECTS)
+                        .addFailedVariantFilter()
+                        // frequency filter max will be automatically derived from the inheritance mode options
+                        .addFrequencyFilter()
+                        .addPathogenicityFilter(true)
+                        .addInheritanceFilter()
+                        .addOmimPrioritiser()
+                        .addHiPhivePrioritiser()
+                        .build();
+
+                AnalysisResults splicingAgnosticResults = exomiser.run(splicingAgnosticAnalysis);
+
+                OutputSettings agnosticSettings = OutputSettings.builder()
+                        .outputFormats(OUTPUT_FORMATS)
+                        .outputPrefix(phenopacketOutputDir.resolve(ppFileName + "_NO").toString())
+                        .build();
+                AnalysisResultsWriter.writeToFile(splicingAgnosticAnalysis, splicingAgnosticResults, agnosticSettings);
+
+                //
+                // Then run the analysis with splicing pathogenicity scores
+                LOGGER.info("\n\n\u2708\u2708\u2708\u2708\u2708\u2708\u2708\u2708\u2708\u2708\u2708\u2708\u2708\u2708\u2708\u2708" +
+                        "   Creating splicing-aware analysis   " +
+                        "\u2600\u2600\u2600\u2600\u2600\u2600\u2600\u2600\u2600\u2600\u2600\u2600\u2600\u2600\u2600\u2600\n");
+                Analysis splicingAwareAnalysis = exomiser.getAnalysisBuilder()
+                        .genomeAssembly(GenomeAssembly.HG19)
+                        .vcfPath(vcfPath)
+                        .probandSampleName(sampleName)
+                        .hpoIds(phenotypesAsHpoStrings)
+                        .analysisMode(AnalysisMode.PASS_ONLY)
+                        .inheritanceModes(INHERITANCE_MODE_OPTIONS)
+                        .frequencySources(FrequencySource.ALL_EXTERNAL_FREQ_SOURCES)
+                        .pathogenicitySources(PS_W_SPLICING) // all the pathogenicity sources except TEST
+                        // adds an mask for removing non-coding variants
+                        .addQualityFilter(200)
+                        .addVariantEffectFilter(NON_CODING_EFFECTS)
+                        .addFailedVariantFilter()
+                        // frequency filter max will be automatically derived from the inheritance mode options
+                        .addFrequencyFilter()
+                        .addPathogenicityFilter(true)
+                        .addInheritanceFilter()
+                        .addOmimPrioritiser()
+                        .addHiPhivePrioritiser()
+                        .build();
+
+                AnalysisResults splicingAwareResults = exomiser.run(splicingAwareAnalysis);
+
+                OutputSettings awareSettings = OutputSettings.builder()
+                        .outputFormats(OUTPUT_FORMATS)
+                        .outputPrefix(phenopacketOutputDir.resolve(ppFileName + "_YES").toString())
+                        .build();
+                AnalysisResultsWriter.writeToFile(splicingAwareAnalysis, splicingAwareResults, awareSettings);
+
+
+                //
+                // write ranks/evaluation of the analyses
+                SimpleResults sr = evaluateResults(pp, splicingAgnosticResults, splicingAwareResults);
+                String resultLine = sr.getCaseName() + delimiter
+                        + sr.getRankWithSplicing() + delimiter
+                        + sr.getRankNormal() + delimiter
+                        + sr.getSplicingPathomechanism();
+                resultWriter.write(resultLine);
+                resultWriter.newLine();
+                resultWriter.flush();
             }
-
-            if (pp.getGenesCount() != 1) {
-                LOGGER.error("Phenopackets used for simulation MUST have exactly one gene");
-                continue;
-            }
-
-            if (pp.getDiseasesCount() != 1) {
-                LOGGER.error("Phenopackets used for simulation MUST have exactly one disease");
-                continue;
-            }
-
-
-            // -----------------------    CREATE THE SIMULATED VCF FILE    -------------------------
-            LOGGER.info("Creating simulated VCF file");
-            Path vcfPath = simulator.simulateVcfWithPhenopacket(pp);
-
-            String ppFileName = phenopacketPath.toFile().getName();
-
-            // Exomiser results for given phenopacket will be written here
-            Path phenopacketOutputDir = Files.createDirectories(outputPath.resolve(ppFileName));
-
-            // -------------------------------------------------------------------------------------
-            //
-            // First run the analysis without splicing scores
-            //
-            LOGGER.info("Creating splicing-agnostic analysis");
-            String sampleName = pp.getSubject().getId().replaceAll("\\s+", "_");
-
-            List<String> phenotypesAsHpoStrings = Utils.getPresentPhenotypesAsHpoStrings(pp);
-
-            Analysis splicingAgnosticAnalysis = exomiser.getAnalysisBuilder()
-                    .genomeAssembly(GenomeAssembly.HG19)
-                    .vcfPath(vcfPath)
-                    .probandSampleName(sampleName)
-                    .hpoIds(phenotypesAsHpoStrings)
-                    .analysisMode(AnalysisMode.PASS_ONLY)
-                    .inheritanceModes(INHERITANCE_MODE_OPTIONS)
-                    .frequencySources(FREQUENCY_SOURCES)
-                    .pathogenicitySources(PS_NOT_SPLICING) // all the pathogenicity sources except SPLICING & TEST
-                    // adds an mask for removing non-coding variants
-                    .addVariantEffectFilter(NON_CODING_EFFECTS)
-                    .addFailedVariantFilter()
-                    // frequency filter max will be automatically derived from the inheritance mode options
-                    .addFrequencyFilter()
-                    .addPathogenicityFilter(true)
-                    .addInheritanceFilter()
-                    .addOmimPrioritiser()
-                    .addHiPhivePrioritiser()
-                    .build();
-
-            AnalysisResults splicingAgnosticResults = exomiser.run(splicingAgnosticAnalysis);
-
-            OutputSettings agnosticSettings = OutputSettings.builder()
-                    .outputFormats(OUTPUT_FORMATS)
-                    .outputPrefix(phenopacketOutputDir.resolve(ppFileName + "_NO").toString())
-                    .build();
-            AnalysisResultsWriter.writeToFile(splicingAgnosticAnalysis, splicingAgnosticResults, agnosticSettings);
-
-            //
-            // Then run the analysis with splicing pathogenicity scores
-            LOGGER.info("Creating splicing-aware analysis");
-            Analysis splicingAwareAnalysis = exomiser.getAnalysisBuilder()
-                    .genomeAssembly(GenomeAssembly.HG19)
-                    .vcfPath(vcfPath)
-                    .probandSampleName(sampleName)
-                    .hpoIds(phenotypesAsHpoStrings)
-                    .analysisMode(AnalysisMode.PASS_ONLY)
-                    .inheritanceModes(INHERITANCE_MODE_OPTIONS)
-                    .frequencySources(FrequencySource.ALL_EXTERNAL_FREQ_SOURCES)
-                    .pathogenicitySources(PS_W_SPLICING) // all the pathogenicity sources except TEST
-                    // adds an mask for removing non-coding variants
-                    .addVariantEffectFilter(NON_CODING_EFFECTS)
-                    .addFailedVariantFilter()
-                    // frequency filter max will be automatically derived from the inheritance mode options
-                    .addFrequencyFilter()
-                    .addPathogenicityFilter(true)
-                    .addInheritanceFilter()
-                    .addOmimPrioritiser()
-                    .addHiPhivePrioritiser()
-                    .build();
-
-            AnalysisResults splicingAwareResults = exomiser.run(splicingAwareAnalysis);
-
-            OutputSettings awareSettings = OutputSettings.builder()
-                    .outputFormats(OUTPUT_FORMATS)
-                    .outputPrefix(phenopacketOutputDir.resolve(ppFileName + "_YES").toString())
-                    .build();
-            AnalysisResultsWriter.writeToFile(splicingAwareAnalysis, splicingAwareResults, awareSettings);
-
-            // store evaluation of the analyses
-            results.add(evaluateResults(pp, splicingAgnosticResults, splicingAwareResults));
-
         }
-
-        writeResults(results, outputPath);
 
         LOGGER.info("くまくま━━━━━━ヽ（ ・(ｪ)・ ）ノ━━━━━━ !!!");
         LOGGER.info("                 Done!               ");
