@@ -1,6 +1,6 @@
 # Exomiser simulations
 
-This repo contains code for running simulations using Exomiser. The code usually receives one or more Phenopackets, simulate an exome and run the Exomiser analysis.
+This repo contains code for running simulations using Exomiser. The code usually receives one or more Phenopackets, then simulates an exome and finally runs the Exomiser analysis.
 
 Simulated exome VCF file is being created in a naive way at the moment. A single VCF file with variants is required and the variants from `Phenopacket` are spiked in between the variants.
 

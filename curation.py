@@ -1,4 +1,9 @@
+import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
+import seaborn as sns
+
+sns.set_style('whitegrid')
 
 def group_consequence(element):
     """Map CONSEQUENCE to friedlier values."""
@@ -76,3 +81,44 @@ def prioritize(entries):
                     return e
         else:
             return entries
+
+def load_data(fpath):
+    df = pd.read_csv(fpath, sep="\t")
+
+    # melt rows with multiple PATHOMECHANISM entries
+    df['PATHOMECHANISM'] = df['PATHOMECHANISM'].str.split(";")
+    df = df.explode("PATHOMECHANISM")
+
+    # remove lines with non-splicing pathomechanism
+    df = df.loc[df.PATHOMECHANISM.str.startswith("splicing"), :]
+
+    df['PATHOGRP'] = df.PATHOMECHANISM.map(group_pathomechanism_for_threes_evaluation)
+    return df
+
+def plot_single_color(w_splicing, wo_splicing, ax=None):
+    if not ax:
+        fig, ax = plt.subplots(figsize=(12, 8))
+
+    max_val = max([w_splicing.max(), wo_splicing.max()])
+    line_points = np.linspace(0, max_val, 10)
+    line = ax.plot(line_points, line_points, "--", color="grey", alpha=0.5)
+    sct = ax.scatter(w_splicing, wo_splicing, color='red', alpha=0.5)
+
+    xl = ax.set_xlabel("WITH SPLICING")
+    yl = ax.set_ylabel("WITHOUT SPLICING")
+    title = ax.set_title("Causal gene ranks with or without\nSPLICING pathogenicity source",
+                         size="xx-large", fontweight="bold")
+
+def plot_multicolor(w_splicing, wo_splicing, hue, ho, ax=None):
+    if not ax:
+        fig, ax = plt.subplots(figsize=(12, 8))
+
+    max_val = max([w_splicing.max(), wo_splicing.max()])
+    line_points = np.linspace(0, max_val, 10)
+    line = ax.plot(line_points, line_points, "--", color="grey", alpha=0.5)
+    sct = sns.scatterplot(w_splicing, wo_splicing, hue=hue, hue_order=ho, alpha=0.5, ax=ax)
+
+    xl = ax.set_xlabel("WITH SPLICING")
+    yl = ax.set_ylabel("WITHOUT SPLICING")
+    title = ax.set_title("Causal gene ranks with or without\nSPLICING pathogenicity source",
+                     size="xx-large", fontweight="bold")
