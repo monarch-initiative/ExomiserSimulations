@@ -127,7 +127,7 @@ public class ScorePhenopacketsCommand implements ApplicationRunner {
                     ScoringStrategy.SMS
             );
 
-            List<String> headerFields = new ArrayList<>(Arrays.asList("PHENOPACKET",
+            List<String> headerFields = new ArrayList<>(Arrays.asList("CASE",
                     "VARIANT", "TRANSCRIPT", "VCLASS", "PATHOMECHANISM", "CONSEQUENCE",
                     "MAX_SCORE"));
             for (ScoringStrategy strategy : scoringStrategies) {
@@ -142,7 +142,6 @@ public class ScorePhenopacketsCommand implements ApplicationRunner {
             LOGGER.info("Analyzing {} phenopackets", phenopacketPaths.size());
             for (Path phenopacketPath : phenopacketPaths) {
                 Phenopacket phenopacket = Utils.readPhenopacket(phenopacketPath);
-                String phenopacketName = phenopacketPath.toFile().getName();
 
                 for (Variant variant : phenopacket.getVariantsList()) {
                     if (!variant.getAlleleCase().equals(Variant.AlleleCase.VCF_ALLELE)) {
@@ -197,7 +196,7 @@ public class ScorePhenopacketsCommand implements ApplicationRunner {
 
                     // write out
                     StringBuilder builder = new StringBuilder()
-                            .append(phenopacketName).append(DELIMITER)
+                            .append(phenopacket.getId()).append(DELIMITER)
                             // VARIANT
                             .append(String.format("%s:%d %s>%s", splv.getContig(), splv.getPos(), splv.getRef(), splv.getAlt())).append(DELIMITER)
                             // TRANSCRIPT
