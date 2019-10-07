@@ -5,15 +5,16 @@ import seaborn as sns
 
 sns.set_style('whitegrid')
 
+
 def group_consequence(element):
     """Map CONSEQUENCE to friedlier values."""
     if isinstance(element, pd.Series):
         csq = element['cs']
     else:
         csq = element
-        
+
     if isinstance(csq, float):
-        return "None"    
+        return "None"
     elif csq == "Alternative/cryptic 5' splice site":
         return "5_CSS"
     elif csq == "Alternative/cryptic 3' splice site":
@@ -31,8 +32,8 @@ def group_pathomechanism(element):
         pth = element['pm']
     else:
         pth = element
-    
-    #if pth.startswith("splicing|SRE"):
+
+    # if pth.startswith("splicing|SRE"):
     #    return "splicing|SRE"
     if pth.startswith("splicing|PPT"):
         return "splicing|3ss|disrupted"
@@ -82,7 +83,8 @@ def prioritize(entries):
         else:
             return entries
 
-def load_data(fpath):
+
+def load_threes_ranks_table(fpath):
     df = pd.read_csv(fpath, sep="\t")
 
     # melt rows with multiple PATHOMECHANISM entries
@@ -94,6 +96,17 @@ def load_data(fpath):
 
     df['PATHOGRP'] = df.PATHOMECHANISM.map(group_pathomechanism_for_threes_evaluation)
     return df
+
+
+def load_threes_phenopacket_scores_table(fpath):
+    df = pd.read_csv(fpath, sep="\t")
+
+    df = df.loc[df.PATHOMECHANISM.str.startswith("splicing"), :]
+    df['PATHOGRP'] = df.PATHOMECHANISM.apply(simplify_pathomechanism)
+    # df = df.rename(columns={'PHENOPACKET':'CASE'})
+    # df['CASE'] = df['CASE'].apply(lambda x: x[:x.find('.json')])
+    return df
+
 
 def plot_single_color(w_splicing, wo_splicing, ax=None):
     if not ax:
@@ -109,9 +122,10 @@ def plot_single_color(w_splicing, wo_splicing, ax=None):
     title = ax.set_title("Causal gene ranks with or without\nSPLICING pathogenicity source",
                          size="xx-large", fontweight="bold")
 
+
 def plot_multicolor(w_splicing, wo_splicing, hue, ho, ax=None):
     if not ax:
-        fig, ax = plt.subplots(figsize=(12, 8))
+        fig, ax = plt.subplots(figsize=(12, 8), dpi=150)
 
     max_val = max([w_splicing.max(), wo_splicing.max()])
     line_points = np.linspace(0, max_val, 10)
@@ -121,4 +135,26 @@ def plot_multicolor(w_splicing, wo_splicing, hue, ho, ax=None):
     xl = ax.set_xlabel("WITH SPLICING")
     yl = ax.set_ylabel("WITHOUT SPLICING")
     title = ax.set_title("Causal gene ranks with or without\nSPLICING pathogenicity source",
-                     size="xx-large", fontweight="bold")
+                         size="large", fontweight="bold")
+
+
+def load_spliceai_table(fpath: str):
+    """Load SpliceAI result table created by `spliceai-benchmark` code.
+    
+    - create the DataFrame
+    - remove records representing variant impact to different gene (variant close to two overlapping transcripts 
+    of different genes will be annotated with respect to both transcripts)
+    - remove records not representing `splicing|*` pathomechanism
+    """
+    dtypes = {'DS_AG': np.float, 'DS_AL': np.float, 'DS_DG': np.float, 'DS_DL': np.float}
+    sd = pd.read_csv(fpath, sep='\t', dtype=dtypes, na_values={'.', np.nan})
+    # remove records regarding transcript of a noncausal gene. The `CASE` column looks like `PMID:11828341-Ishii-2002-GLA-proband_1`
+    # it contains gene symbol `GLA`.
+    sd = sd.loc[sd.apply(lambda x: x.SYMBOL in x.CASE, axis=1), :]
+
+    # remove non-splicing entries
+    sd = sd.loc[sd.PATHOMECHANISM.str.startswith("splicing"), :]
+
+    sd['PATHOGRP'] = sd.PATHOMECHANISM.apply(simplify_pathomechanism)
+    print("Loaded {} records".format(len(sd)))
+    return sd.reset_index(drop=True)
