@@ -31,6 +31,6 @@ There are some hardcoded constraints present at the moment:
 
 **Command line arguments:**
 - `--lirical` - flag required to run the command
-- `--exomiser.data-directory` - path to Exomiser data bundle
+- `--spring.config.location=` - path to Spring's application.properties file (Enter the Exomiser data path here!)
 - `--pp` - path to directory with Phenopackets in JSON format. Note: phenopackets **only** must be present in the directory
 - `--vcf` - path to VCF file with variants, where variants from Phenopacket will be spiked in
