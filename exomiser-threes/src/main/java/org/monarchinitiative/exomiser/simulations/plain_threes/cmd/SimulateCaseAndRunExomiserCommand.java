@@ -1,4 +1,4 @@
-package org.monarchinitiative.exomiser.simulations.plain_threes.commands;
+package org.monarchinitiative.exomiser.simulations.plain_threes.cmd;
 
 import de.charite.compbio.jannovar.annotation.VariantEffect;
 import de.charite.compbio.jannovar.mendel.SubModeOfInheritance;
@@ -24,8 +24,11 @@ import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.stereotype.Component;
 
-import java.io.*;
-import java.nio.file.*;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -180,8 +183,10 @@ public class SimulateCaseAndRunExomiserCommand implements ApplicationRunner {
             resultWriter.newLine();
 
             // -----------------------    FOR EACH PHENOPACKET    --------------------------------------
-            for (Path phenopacketPath : phenopacketPaths) {
-                LOGGER.info("Reading phenopacket from '{}'", phenopacketPath);
+            final int nPhenopackets = phenopacketPaths.size();
+            for (int i = 0; i < nPhenopackets; i++) {
+                Path phenopacketPath = phenopacketPaths.get(i);
+                LOGGER.info("[{}/{}] Reading phenopacket from '{}'", i, nPhenopackets, phenopacketPath);
                 Phenopacket pp = Utils.readPhenopacket(phenopacketPath);
                 if (pp.getSubject().getId().isEmpty()) {
                     LOGGER.error("Phenopacket subject's ID must not be empty. Unable to continue");

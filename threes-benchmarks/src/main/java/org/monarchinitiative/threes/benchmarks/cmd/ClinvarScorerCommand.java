@@ -1,22 +1,23 @@
-package org.monarchinitiative.exomiser.simulations.plain_threes.commands;
+package org.monarchinitiative.threes.benchmarks.cmd;
 
+import de.charite.compbio.jannovar.data.ReferenceDictionary;
+import de.charite.compbio.jannovar.reference.*;
+import htsjdk.variant.variantcontext.Allele;
 import htsjdk.variant.variantcontext.VariantContext;
 import htsjdk.variant.vcf.VCFFileReader;
-import org.monarchinitiative.exomiser.simulations.plain_threes.Utils;
+import org.monarchinitiative.threes.benchmarks.Utils;
 import org.monarchinitiative.threes.core.data.SplicingTranscriptSource;
-import org.monarchinitiative.threes.core.model.GenomeCoordinates;
-import org.monarchinitiative.threes.core.model.SequenceInterval;
 import org.monarchinitiative.threes.core.model.SplicingTranscript;
-import org.monarchinitiative.threes.core.model.SplicingVariant;
-import org.monarchinitiative.threes.core.reference.fasta.GenomeSequenceAccessor;
-import org.monarchinitiative.threes.core.scoring.ScoringStrategy;
 import org.monarchinitiative.threes.core.scoring.SplicingEvaluator;
 import org.monarchinitiative.threes.core.scoring.SplicingPathogenicityData;
+import org.monarchinitiative.threes.core.scoring.sparse.ScoringStrategy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.stereotype.Component;
+import xyz.ielis.hyperutil.reference.fasta.GenomeSequenceAccessor;
+import xyz.ielis.hyperutil.reference.fasta.SequenceInterval;
 
 import java.io.BufferedWriter;
 import java.nio.file.Files;
@@ -25,6 +26,7 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -118,6 +120,7 @@ public class ClinvarScorerCommand implements ApplicationRunner {
             header.add(ss.toString());
         }
 
+        final ReferenceDictionary rd = genomeSequenceAccessor.getReferenceDictionary();
         try (VCFFileReader reader = new VCFFileReader(clinVarVcfPath.toFile(), false);
              BufferedWriter writer = Files.newBufferedWriter(outputPath)) {
             // write header
@@ -138,60 +141,64 @@ public class ClinvarScorerCommand implements ApplicationRunner {
 
 
                 // make variant proper for splicing analysis
-                GenomeCoordinates varCoordinates = GenomeCoordinates.newBuilder()
-                        .setContig(vc.getContig())
-                        .setBegin(vc.getStart() - 1)
-                        .setEnd(vc.getStart() + vc.getReference().getBaseString().length() - 1)
-                        .setStrand(true)
-                        .build();
-
-                SplicingVariant splv = SplicingVariant.newBuilder()
-                        .setCoordinates(varCoordinates)
-                        .setRef(vc.getReference().getBaseString())
-                        .setAlt(vc.getAlternateAllele(0).getBaseString())
-                        .build();
-                LOGGER.info("Evaluating {}", splv);
-
-                // fetch all the transcripts overlapping with variant's position
-                // retain the curated transcripts (accession id starts with 'NM_')
-                List<SplicingTranscript> curatedTranscripts = splicingTranscriptSource.fetchTranscripts(varCoordinates.getContig(), varCoordinates.getBegin(), varCoordinates.getEnd()).stream()
-                        .filter(tx -> tx.getAccessionId().startsWith("NM_"))
-                        .collect(Collectors.toList());
-
-                if (curatedTranscripts.isEmpty()) {
-                    LOGGER.warn("No curated transcript overlaps with variant {}", splv);
+                if (!rd.getContigNameToID().containsKey(vc.getContig())) {
+                    LOGGER.warn("Unknown chromosome `{}` for variant {}:{}{}>{}", vc.getContig(), vc.getContig(), vc.getStart(), vc.getReference().getBaseString(), vc.getAlternateAlleles().get(0).getBaseString());
                     continue;
                 }
+                for (Allele altAllele : vc.getAlternateAlleles()) {
+                    final GenomeVariant gv = new GenomeVariant(new GenomePosition(rd, Strand.FWD, rd.getContigNameToID().get(vc.getContig()), vc.getStart(), PositionType.ONE_BASED),
+                            vc.getReference().getBaseString(), altAllele.getBaseString());
+                    LOGGER.info("Evaluating `{}`", gv);
 
 
-                SplicingTranscript transcript = curatedTranscripts.stream()
-                        .min(Utils.transcriptPriorityComparator())
-                        .get();
+                    // fetch all the transcripts overlapping with variant's position
+                    // retain the curated transcripts (accession id starts with 'NM_')
+                    List<SplicingTranscript> curatedRefseqTranscripts = splicingTranscriptSource.fetchTranscripts(gv.getChrName(), gv.getGenomeInterval().getBeginPos(), gv.getGenomeInterval().getEndPos(), rd).stream()
+                            .filter(tx -> tx.getAccessionId().startsWith("NM_"))
+                            .collect(Collectors.toList());
+
+                    if (curatedRefseqTranscripts.isEmpty()) {
+                        LOGGER.warn("No curated transcript overlaps with variant `{}`", gv);
+                        continue;
+                    }
 
 
-                // fetch nucleotide sequence neighboring the variant
-                SequenceInterval sequenceInterval = genomeSequenceAccessor.fetchSequence(transcript.getContig(),
-                        transcript.getTxBegin() - 50, transcript.getTxEnd() + 50,
-                        transcript.getStrand());
+                    SplicingTranscript transcript = curatedRefseqTranscripts.stream()
+                            .min(Utils.transcriptPriorityComparator())
+                            .get();
 
 
-                // --- EVALUATE VARIANT AGAINST THE TRANSCRIPT & WRITE OUT THE SCORES ---
-                // evaluate
-                SplicingPathogenicityData evaluation = splicingEvaluator.evaluate(splv, transcript, sequenceInterval);
+                    // fetch nucleotide sequence neighboring the variant
+                    final GenomeInterval txQueryRegion = transcript.getTxRegionCoordinates().withMorePadding(50, 50);
+                    Optional<SequenceInterval> sequenceIntervalOpt = genomeSequenceAccessor.fetchSequence(txQueryRegion);
+                    if (!sequenceIntervalOpt.isPresent()) {
+                        LOGGER.warn("Unable to fetch sequence `{}` for transcript `{}-{}`", txQueryRegion, transcript.getAccessionId(), transcript.getTxRegionCoordinates());
+                        continue;
+                    }
 
-                // write out
-                StringBuilder builder = new StringBuilder()
-                        .append(String.format("%s:%d %s>%s", splv.getContig(), splv.getPos(), splv.getRef(), splv.getAlt())).append(DELIMITER)
-                        .append(transcript.getAccessionId()).append(DELIMITER)
-                        .append(evaluation.getMaxScore()); // no delimiter here!
 
-                // write out all the scores
-                for (ScoringStrategy ss : scoringStrategies) {
-                    builder.append(DELIMITER).append(evaluation.getScoresMap().getOrDefault(ss, Double.NaN));
+                    // --- EVALUATE VARIANT AGAINST THE TRANSCRIPT & WRITE OUT THE SCORES ---
+                    // evaluate
+                    SplicingPathogenicityData evaluation = splicingEvaluator.evaluate(gv, transcript, sequenceIntervalOpt.get());
+
+                    // write out
+                    StringBuilder builder = new StringBuilder()
+                            .append(String.format("%s:%d %s>%s", gv.getChrName(), gv.getPos() + 1, gv.getRef(), gv.getAlt())).append(DELIMITER)
+                            .append(transcript.getAccessionId()).append(DELIMITER)
+                            .append(evaluation.getMaxScore()); // no delimiter here!
+
+                    // write out all the scores
+                    for (ScoringStrategy ss : scoringStrategies) {
+                        builder.append(DELIMITER).append(evaluation.getScoresMap().getOrDefault(ss, Double.NaN));
+                    }
+
+                    writer.write(builder.toString());
+                    writer.newLine();
+
+
                 }
 
-                writer.write(builder.toString());
-                writer.newLine();
+
             }
 
             LOGGER.info("くまくま━━━━━━ヽ（ ・(ｪ)・ ）ノ━━━━━━ !!!");

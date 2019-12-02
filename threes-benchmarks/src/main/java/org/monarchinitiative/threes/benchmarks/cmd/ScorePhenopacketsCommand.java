@@ -1,15 +1,13 @@
-package org.monarchinitiative.exomiser.simulations.plain_threes.commands;
+package org.monarchinitiative.threes.benchmarks.cmd;
 
-import org.monarchinitiative.exomiser.simulations.plain_threes.Utils;
+import de.charite.compbio.jannovar.data.ReferenceDictionary;
+import de.charite.compbio.jannovar.reference.*;
+import org.monarchinitiative.threes.benchmarks.Utils;
 import org.monarchinitiative.threes.core.data.SplicingTranscriptSource;
-import org.monarchinitiative.threes.core.model.GenomeCoordinates;
-import org.monarchinitiative.threes.core.model.SequenceInterval;
 import org.monarchinitiative.threes.core.model.SplicingTranscript;
-import org.monarchinitiative.threes.core.model.SplicingVariant;
-import org.monarchinitiative.threes.core.reference.fasta.GenomeSequenceAccessor;
-import org.monarchinitiative.threes.core.scoring.ScoringStrategy;
 import org.monarchinitiative.threes.core.scoring.SplicingEvaluator;
 import org.monarchinitiative.threes.core.scoring.SplicingPathogenicityData;
+import org.monarchinitiative.threes.core.scoring.sparse.ScoringStrategy;
 import org.phenopackets.schema.v1.Phenopacket;
 import org.phenopackets.schema.v1.core.Variant;
 import org.phenopackets.schema.v1.core.VcfAllele;
@@ -18,6 +16,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.stereotype.Component;
+import xyz.ielis.hyperutil.reference.fasta.GenomeSequenceAccessor;
+import xyz.ielis.hyperutil.reference.fasta.SequenceInterval;
 
 import java.io.BufferedWriter;
 import java.io.File;
@@ -139,6 +139,7 @@ public class ScorePhenopacketsCommand implements ApplicationRunner {
             writer.newLine();
 
             // analyze phenopackets
+            final ReferenceDictionary rd = genomeSequenceAccessor.getReferenceDictionary();
             LOGGER.info("Analyzing {} phenopackets", phenopacketPaths.size());
             for (Path phenopacketPath : phenopacketPaths) {
                 Phenopacket phenopacket = Utils.readPhenopacket(phenopacketPath);
@@ -148,57 +149,58 @@ public class ScorePhenopacketsCommand implements ApplicationRunner {
                         LOGGER.info("Variant allele is not in VCF format: {}\nSkipping..", variant);
                         continue;
                     }
+
+
                     // make variant proper for splicing analysis
                     VcfAllele vcfAllele = variant.getVcfAllele();
-                    GenomeCoordinates varCoordinates = GenomeCoordinates.newBuilder()
-                            .setContig(vcfAllele.getChr())
-                            .setBegin(vcfAllele.getPos() - 1)
-                            .setEnd(vcfAllele.getPos() + vcfAllele.getRef().length() - 1)
-                            .setStrand(true)
-                            .build();
+                    if (!rd.getContigNameToID().containsKey(vcfAllele.getChr())) {
+                        LOGGER.info("Unknown chromosome of variant {}:{}{}>{}", vcfAllele.getChr(), vcfAllele.getPos(), vcfAllele.getRef(), vcfAllele.getAlt());
+                        continue;
+                    }
 
-                    SplicingVariant splv = SplicingVariant.newBuilder()
-                            .setCoordinates(varCoordinates)
-                            .setRef(vcfAllele.getRef())
-                            .setAlt(vcfAllele.getAlt())
-                            .build();
-                    LOGGER.debug("Evaluating variant {}", splv);
+                    final GenomeVariant gv = new GenomeVariant(new GenomePosition(rd, Strand.FWD, rd.getContigNameToID().get(vcfAllele.getChr()), vcfAllele.getPos(), PositionType.ONE_BASED),
+                            vcfAllele.getRef(), vcfAllele.getAlt());
+
+                    LOGGER.debug("Evaluating variant `{}`", gv);
 
 
                     // fetch all the transcripts overlapping with variant's position
                     // retain the curated transcripts (accession id starts with 'NM_')
-                    List<SplicingTranscript> curatedTranscripts = splicingTranscriptSource.fetchTranscripts(varCoordinates.getContig(), varCoordinates.getBegin(), varCoordinates.getEnd()).stream()
+                    List<SplicingTranscript> curatedRefSeqTranscripts = splicingTranscriptSource.fetchTranscripts(gv.getChrName(), gv.getGenomeInterval().getBeginPos(), gv.getGenomeInterval().getEndPos(), rd).stream()
                             .filter(tx -> tx.getAccessionId().startsWith("NM_"))
                             .collect(Collectors.toList());
 
-                    if (curatedTranscripts.isEmpty()) {
-                        LOGGER.warn("No curated transcript overlaps with variant {}", splv);
+                    if (curatedRefSeqTranscripts.isEmpty()) {
+                        LOGGER.warn("No curated transcript overlaps with variant `{}`", gv);
                         continue;
                     }
 
 
-                    SplicingTranscript transcript = curatedTranscripts.stream()
+                    SplicingTranscript transcript = curatedRefSeqTranscripts.stream()
                             .min(Utils.transcriptPriorityComparator())
                             .get();
 
 
                     // fetch nucleotide sequence neighboring the variant
-                    SequenceInterval sequenceInterval = genomeSequenceAccessor.fetchSequence(transcript.getContig(),
-                            transcript.getTxBegin() - 50, transcript.getTxEnd() + 50,
-                            transcript.getStrand());
+                    final GenomeInterval txQueryRegion = transcript.getTxRegionCoordinates().withMorePadding(50, 50);
+                    Optional<SequenceInterval> sequenceIntervalOpt = genomeSequenceAccessor.fetchSequence(txQueryRegion);
+                    if (!sequenceIntervalOpt.isPresent()) {
+                        LOGGER.warn("Unable to fetch sequence `{}` for transcript `{}-{}`", txQueryRegion, transcript.getAccessionId(), transcript.getTxRegionCoordinates());
+                        continue;
+                    }
 
                     // get VCLASS, PATHOMECHANISM, CONSEQUENCE
                     Map<String, String> infos = getInfoFromVcfAllele(vcfAllele.getInfo());
 
                     // --- EVALUATE VARIANT AGAINST THE TRANSCRIPT & WRITE OUT THE SCORES ---
                     // evaluate
-                    SplicingPathogenicityData evaluation = splicingEvaluator.evaluate(splv, transcript, sequenceInterval);
+                    SplicingPathogenicityData evaluation = splicingEvaluator.evaluate(gv, transcript, sequenceIntervalOpt.get());
 
                     // write out
                     StringBuilder builder = new StringBuilder()
                             .append(phenopacket.getId()).append(DELIMITER)
                             // VARIANT
-                            .append(String.format("%s:%d %s>%s", splv.getContig(), splv.getPos(), splv.getRef(), splv.getAlt())).append(DELIMITER)
+                            .append(String.format("%s:%d %s>%s", gv.getChrName(), gv.getPos() + 1, gv.getRef(), gv.getAlt())).append(DELIMITER)
                             // TRANSCRIPT
                             .append(transcript.getAccessionId()).append(DELIMITER)
                             // VCLASS

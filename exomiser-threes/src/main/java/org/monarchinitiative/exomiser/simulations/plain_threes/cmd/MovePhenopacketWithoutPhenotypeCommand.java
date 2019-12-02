@@ -1,4 +1,4 @@
-package org.monarchinitiative.exomiser.simulations.plain_threes.commands;
+package org.monarchinitiative.exomiser.simulations.plain_threes.cmd;
 
 import org.monarchinitiative.exomiser.simulations.plain_threes.Utils;
 import org.phenopackets.schema.v1.Phenopacket;
