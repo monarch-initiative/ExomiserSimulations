@@ -2,10 +2,14 @@ package org.monarchinitiative.threes.benchmarks.cmd;
 
 import de.charite.compbio.jannovar.data.ReferenceDictionary;
 import de.charite.compbio.jannovar.reference.*;
+import net.sourceforge.argparse4j.inf.MutuallyExclusiveGroup;
+import net.sourceforge.argparse4j.inf.Namespace;
+import net.sourceforge.argparse4j.inf.Subparser;
+import net.sourceforge.argparse4j.inf.Subparsers;
 import org.monarchinitiative.threes.benchmarks.Utils;
 import org.monarchinitiative.threes.core.data.SplicingTranscriptSource;
 import org.monarchinitiative.threes.core.model.SplicingTranscript;
-import org.monarchinitiative.threes.core.scoring.SplicingEvaluator;
+import org.monarchinitiative.threes.core.scoring.SplicingAnnotator;
 import org.monarchinitiative.threes.core.scoring.SplicingPathogenicityData;
 import org.monarchinitiative.threes.core.scoring.sparse.ScoringStrategy;
 import org.phenopackets.schema.v1.Phenopacket;
@@ -13,14 +17,13 @@ import org.phenopackets.schema.v1.core.Variant;
 import org.phenopackets.schema.v1.core.VcfAllele;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.boot.ApplicationArguments;
-import org.springframework.boot.ApplicationRunner;
 import org.springframework.stereotype.Component;
 import xyz.ielis.hyperutil.reference.fasta.GenomeSequenceAccessor;
 import xyz.ielis.hyperutil.reference.fasta.SequenceInterval;
 
 import java.io.BufferedWriter;
 import java.io.File;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -54,7 +57,7 @@ import java.util.stream.Collectors;
  * <b>!! IMPORTANT !!</b> - this code does not work with other than RefSeq splicing transcript source.
  */
 @Component
-public class ScorePhenopacketsCommand implements ApplicationRunner {
+public class ScorePhenopacketsCommand extends Command {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ScorePhenopacketsCommand.class);
 
@@ -64,24 +67,19 @@ public class ScorePhenopacketsCommand implements ApplicationRunner {
 
     private final SplicingTranscriptSource splicingTranscriptSource;
 
-    private final SplicingEvaluator splicingEvaluator;
+    private final SplicingAnnotator splicingAnnotator;
 
     /**
      * List of paths to phenopacket JSONs which will be analyzed.
      */
     private final List<Path> phenopacketPaths = new ArrayList<>();
 
-    /**
-     * Path to TSV file where results will be written.
-     */
-    private Path outputPath;
-
     public ScorePhenopacketsCommand(GenomeSequenceAccessor genomeSequenceAccessor,
                                     SplicingTranscriptSource splicingTranscriptSource,
-                                    SplicingEvaluator splicingEvaluator) {
+                                    SplicingAnnotator splicingAnnotator) {
         this.genomeSequenceAccessor = genomeSequenceAccessor;
         this.splicingTranscriptSource = splicingTranscriptSource;
-        this.splicingEvaluator = splicingEvaluator;
+        this.splicingAnnotator = splicingAnnotator;
     }
 
     private static Map<String, String> getInfoFromVcfAllele(String info) {
@@ -102,19 +100,50 @@ public class ScorePhenopacketsCommand implements ApplicationRunner {
         return map;
     }
 
+    public static void setupSubparsers(Subparsers subparsers) {
+        Subparser ic = subparsers.addParser("score-phenopackets")
+                .setDefault("cmd", "score-phenopackets")
+                .help("score phenopackets");
+
+        MutuallyExclusiveGroup ppGroup = ic.addMutuallyExclusiveGroup();
+        ppGroup.addArgument("--pp-dir")
+                .help("path to ClinVar VCF file");
+
+        ppGroup.addArgument("--pp")
+                .nargs("*")
+                .help("path");
+
+        ic.addArgument("output-scores")
+                .help("where to write the output file");
+    }
 
     @Override
-    public void run(ApplicationArguments args) throws Exception {
-        if (!args.containsOption("score-phenopackets")) {
-            // not running this command
-            return;
+    public void run(Namespace namespace) throws CommandException {
+        // 0 - parse CLI args
+        // Collect paths from directory, or individual paths specified by `--pp` option
+        final String ppDir = namespace.getString("pp_dir");
+        if (ppDir != null) {
+            final Path ppDirPath = Paths.get(ppDir);
+            LOGGER.info("Reading phenopackets from '{}'", ppDirPath);
+
+            File[] jsonFiles = ppDirPath.toFile().listFiles(f -> f.getName().endsWith(".json"));
+            if (jsonFiles != null) {
+                Arrays.stream(jsonFiles).map(File::toPath).forEach(phenopacketPaths::add);
+            }
         }
 
-        if (!parseCliArgs(args)) {
-            // complaints raised in the parse cli function
-            return;
+        final List<String> pps = namespace.getList("pp");
+        if (pps != null) {
+            phenopacketPaths.addAll(pps.stream().map(Paths::get).collect(Collectors.toList()));
         }
 
+        /*
+         * Path to TSV file where results will be written.
+         */
+        Path outputPath = Paths.get(namespace.getString("output_scores"));
+
+
+        // 1 - run the app
 
         try (BufferedWriter writer = Files.newBufferedWriter(outputPath)) {
             // prepare header
@@ -171,7 +200,7 @@ public class ScorePhenopacketsCommand implements ApplicationRunner {
                             .collect(Collectors.toList());
 
                     if (curatedRefSeqTranscripts.isEmpty()) {
-                        LOGGER.warn("No curated transcript overlaps with variant `{}`", gv);
+                        LOGGER.warn("No curated RefSeq transcript overlaps with variant `{}`", gv);
                         continue;
                     }
 
@@ -194,7 +223,7 @@ public class ScorePhenopacketsCommand implements ApplicationRunner {
 
                     // --- EVALUATE VARIANT AGAINST THE TRANSCRIPT & WRITE OUT THE SCORES ---
                     // evaluate
-                    SplicingPathogenicityData evaluation = splicingEvaluator.evaluate(gv, transcript, sequenceIntervalOpt.get());
+                    SplicingPathogenicityData evaluation = splicingAnnotator.evaluate(gv, transcript, sequenceIntervalOpt.get());
 
                     // write out
                     StringBuilder builder = new StringBuilder()
@@ -221,38 +250,12 @@ public class ScorePhenopacketsCommand implements ApplicationRunner {
                     writer.newLine();
                 }
             }
+        } catch (IOException e) {
+            LOGGER.error("Error: ", e);
+            throw new CommandException(e);
         }
 
         LOGGER.info("くまくま━━━━━━ヽ（ ・(ｪ)・ ）ノ━━━━━━ !!!");
         LOGGER.info("                 Done!               ");
-    }
-
-    private boolean parseCliArgs(ApplicationArguments args) {
-        // Phenopackets - either all from a directory, or specified by `--pp` option
-        noJsonFiles:
-        if (args.containsOption("pp-dir")) {
-            String ppDirString = args.getOptionValues("pp-dir").get(0);
-            Path ppDirPath = Paths.get(ppDirString);
-            LOGGER.info("Reading phenopackets from '{}'", ppDirPath);
-            File[] jsonFiles = ppDirPath.toFile().listFiles(f -> f.getName().endsWith(".json"));
-            if (jsonFiles == null) {
-                break noJsonFiles;
-            }
-            Arrays.stream(jsonFiles).map(File::toPath).forEach(phenopacketPaths::add);
-        }
-
-        List<String> pps = args.getOptionValues("pp");
-        if (pps != null) {
-            phenopacketPaths.addAll(pps.stream().map(Paths::get).collect(Collectors.toList()));
-        }
-
-        // Output file path - where to write TSV file with scores
-        if (!args.containsOption("output-scores")) {
-            LOGGER.error("Missing '--output-scores' argument");
-            return false;
-        }
-        outputPath = Paths.get(args.getOptionValues("output-scores").get(0));
-
-        return true;
     }
 }

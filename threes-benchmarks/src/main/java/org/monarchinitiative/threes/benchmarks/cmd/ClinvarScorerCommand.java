@@ -5,21 +5,23 @@ import de.charite.compbio.jannovar.reference.*;
 import htsjdk.variant.variantcontext.Allele;
 import htsjdk.variant.variantcontext.VariantContext;
 import htsjdk.variant.vcf.VCFFileReader;
+import net.sourceforge.argparse4j.inf.Namespace;
+import net.sourceforge.argparse4j.inf.Subparser;
+import net.sourceforge.argparse4j.inf.Subparsers;
 import org.monarchinitiative.threes.benchmarks.Utils;
 import org.monarchinitiative.threes.core.data.SplicingTranscriptSource;
 import org.monarchinitiative.threes.core.model.SplicingTranscript;
-import org.monarchinitiative.threes.core.scoring.SplicingEvaluator;
+import org.monarchinitiative.threes.core.scoring.SplicingAnnotator;
 import org.monarchinitiative.threes.core.scoring.SplicingPathogenicityData;
 import org.monarchinitiative.threes.core.scoring.sparse.ScoringStrategy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.boot.ApplicationArguments;
-import org.springframework.boot.ApplicationRunner;
 import org.springframework.stereotype.Component;
 import xyz.ielis.hyperutil.reference.fasta.GenomeSequenceAccessor;
 import xyz.ielis.hyperutil.reference.fasta.SequenceInterval;
 
 import java.io.BufferedWriter;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -41,7 +43,7 @@ import java.util.stream.Collectors;
  * </p>
  */
 @Component
-public class ClinvarScorerCommand implements ApplicationRunner {
+public class ClinvarScorerCommand extends Command {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ClinvarScorerCommand.class);
 
@@ -62,33 +64,41 @@ public class ClinvarScorerCommand implements ApplicationRunner {
 
     private final SplicingTranscriptSource splicingTranscriptSource;
 
-    private final SplicingEvaluator splicingEvaluator;
+    private final SplicingAnnotator splicingAnnotator;
 
-    // ----------------------       CLI ARGS       ------------------------------------------------------------------
-    private Path clinVarVcfPath;
-
-    private Path outputPath;
-
-    private boolean strict;
-
-    public ClinvarScorerCommand(GenomeSequenceAccessor genomeSequenceAccessor, SplicingTranscriptSource splicingTranscriptSource, SplicingEvaluator splicingEvaluator) {
+    public ClinvarScorerCommand(GenomeSequenceAccessor genomeSequenceAccessor,
+                                SplicingTranscriptSource splicingTranscriptSource,
+                                SplicingAnnotator splicingAnnotator) {
         this.genomeSequenceAccessor = genomeSequenceAccessor;
         this.splicingTranscriptSource = splicingTranscriptSource;
-        this.splicingEvaluator = splicingEvaluator;
+        this.splicingAnnotator = splicingAnnotator;
+    }
+
+
+    public static void setupSubparsers(Subparsers subparsers) {
+        Subparser ic = subparsers.addParser("clinvar-scorer")
+                .setDefault("cmd", "clinvar-scorer")
+                .help("run benchmarks with ClinVar VCF");
+
+        ic.addArgument("clinvar-vcf")
+                .help("path to ClinVar VCF file");
+
+        ic.addArgument("output-clinvar")
+                .help("where to write the output file");
+
+        ic.addArgument("-s", "--strict")
+                .type(Boolean.class)
+                .setDefault(false)
+                .help("run in strict mode");
     }
 
 
     @Override
-    public void run(ApplicationArguments args) throws Exception {
-        if (!args.containsOption("clinvar-scorer")) {
-            // not running this command
-            return;
-        }
-
-        if (!parseCliArgs(args)) {
-            // unable to parse command line, complaints raised in the function
-            return;
-        }
+    public void run(Namespace namespace) throws CommandException {
+        // ----------------------       CLI ARGS       ------------------------------------------------------------------
+        Path clinVarVcfPath = Paths.get(namespace.getString("clinvar_vcf"));
+        Path outputPath = Paths.get(namespace.getString("output_clinvar"));
+        boolean strict = namespace.getBoolean("strict");
 
         // Analyze only Benign variants when `--strict` flag is present.
         // Analyze Benign & Likely benign variants without the `--strict` flag.
@@ -179,7 +189,7 @@ public class ClinvarScorerCommand implements ApplicationRunner {
 
                     // --- EVALUATE VARIANT AGAINST THE TRANSCRIPT & WRITE OUT THE SCORES ---
                     // evaluate
-                    SplicingPathogenicityData evaluation = splicingEvaluator.evaluate(gv, transcript, sequenceIntervalOpt.get());
+                    SplicingPathogenicityData evaluation = splicingAnnotator.evaluate(gv, transcript, sequenceIntervalOpt.get());
 
                     // write out
                     StringBuilder builder = new StringBuilder()
@@ -194,40 +204,15 @@ public class ClinvarScorerCommand implements ApplicationRunner {
 
                     writer.write(builder.toString());
                     writer.newLine();
-
-
                 }
-
-
             }
 
             LOGGER.info("くまくま━━━━━━ヽ（ ・(ｪ)・ ）ノ━━━━━━ !!!");
             LOGGER.info("                 Done!               ");
 
+        } catch (IOException e) {
+            LOGGER.error("Error: ", e);
+            throw new CommandException(e);
         }
     }
-
-
-    private boolean parseCliArgs(ApplicationArguments args) {
-        // Path to Clinvar vcf
-        if (!args.containsOption("clinvar-vcf")) {
-            LOGGER.warn("Missing '--clinvar-vcf' argument");
-            return false;
-        }
-        clinVarVcfPath = Paths.get(args.getOptionValues("clinvar-vcf").get(0));
-
-
-        // Output file path - results
-        if (!args.containsOption("output-clinvar")) {
-            LOGGER.warn("Missing '--output-clinvar' argument");
-            return false;
-        }
-        outputPath = Paths.get(args.getOptionValues("output-clinvar").get(0));
-
-        // Strict flag
-        strict = args.containsOption("strict");
-
-        return true;
-    }
-
 }
