@@ -9,6 +9,7 @@ import org.monarchinitiative.threes.autoconfigure.EnableThrees;
 import org.monarchinitiative.threes.benchmarks.cmd.ClinvarScorerCommand;
 import org.monarchinitiative.threes.benchmarks.cmd.Command;
 import org.monarchinitiative.threes.benchmarks.cmd.ScorePhenopacketsCommand;
+import org.monarchinitiative.threes.benchmarks.cmd.score_splicing_variants.ScoreSplicingVariantsCommand;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -42,6 +43,7 @@ public class Main {
         Subparsers subparsers = parser.addSubparsers();
         ClinvarScorerCommand.setupSubparsers(subparsers);
         ScorePhenopacketsCommand.setupSubparsers(subparsers);
+        ScoreSplicingVariantsCommand.setupSubparsers(subparsers);
 
         parser.defaultHelp(true);
         parser.epilog(EPILOG);
@@ -74,6 +76,9 @@ public class Main {
                 case "score-phenopackets":
                     command = appContext.getBean(ScorePhenopacketsCommand.class);
                     break;
+                case "score-splicing-variants":
+                    command = appContext.getBean(ScoreSplicingVariantsCommand.class);
+                    break;
                 default:
                     LOGGER.warn("Unknown command '{}'", cmdName);
                     System.exit(1);
@@ -81,8 +86,7 @@ public class Main {
             }
 
             command.run(namespace);
+            LOGGER.info("Done!");
         }
-
-        LOGGER.info("Done!");
     }
 }
