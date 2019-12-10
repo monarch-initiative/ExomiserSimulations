@@ -70,6 +70,7 @@ public class ScoreSplicingVariantsCommand extends Command {
                 .end(Integer.parseInt(record.get("END")))
                 .ref(record.get("REF"))
                 .alt(record.get("ALT"))
+                .highestEffect(record.get("HIGHEST_EFFECT"))
                 .effects(record.get("EFFECTS"))
                 .cChange(record.get("C_CHANGE"))
                 .variantSource(record.get("VARIANT_SOURCE"))
@@ -88,11 +89,11 @@ public class ScoreSplicingVariantsCommand extends Command {
         List<RawVariantData> variants;
         List<String> headerNames;
         try (final BufferedReader reader = Files.newBufferedReader(input);
-             final CSVParser parse = CSVFormat.DEFAULT.withFirstRecordAsHeader().parse(reader)) {
+             final CSVParser csvParser = CSVFormat.DEFAULT.withFirstRecordAsHeader().parse(reader)) {
             LOGGER.info("Reading variants");
-            headerNames = new ArrayList<>(parse.getHeaderNames());
-            // VARIANT_ID	TX_ID	CONTIG	BEGIN	END	REF	ALT	EFFECTS	C_CHANGE	VARIANT_SOURCE
-            variants = StreamSupport.stream(parse.spliterator(), false)
+            headerNames = new ArrayList<>(csvParser.getHeaderNames());
+            // VARIANT_ID	TX_ID	CONTIG	BEGIN	END	REF	ALT	HIGHEST_EFFECT  EFFECTS	C_CHANGE	VARIANT_SOURCE
+            variants = StreamSupport.stream(csvParser.spliterator(), false)
                     .map(toRawVariantData())
                     .collect(Collectors.toList());
             LOGGER.info("Read {} variants", variants.size());
@@ -109,8 +110,9 @@ public class ScoreSplicingVariantsCommand extends Command {
                 .collect(Collectors.toList());
 
         // 3 - write the annotated variants into a CSV file
-        String[] header = headerNames.toArray(new String[0]);
-        LOGGER.info("Writing results into `{}`", output);
+        headerNames.addAll(AnnotatedVariantData.SCORER_NAMES);
+        String[] header = headerNames.stream().map(String::toLowerCase).toArray(String[]::new);
+        LOGGER.info("Writing {} results into `{}`", annotated.size(), output);
         try (final BufferedWriter writer = Files.newBufferedWriter(output);
              final CSVPrinter csvPrinter = CSVFormat.DEFAULT.withHeader(header).print(writer)) {
             annotated.stream()

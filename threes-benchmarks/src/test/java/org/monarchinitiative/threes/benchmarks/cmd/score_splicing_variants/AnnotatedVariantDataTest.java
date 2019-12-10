@@ -21,6 +21,7 @@ class AnnotatedVariantDataTest {
                         .end(342)
                         .ref("A")
                         .alt("C")
+                        .highestEffect("SYNO")
                         .effects("SYNO")
                         .cChange("234A>C")
                         .variantSource("CLN")
@@ -37,7 +38,7 @@ class AnnotatedVariantDataTest {
     @Test
     void toRecord() {
         final Object[] actual = data.meltToRecord();
-        Object[] expected = new Object[]{"idee", "txidd", "chr4", 49, 342, "A", "C", "SYNO", "234A>C", "CLN", .1, .2, .3, .4};
+        Object[] expected = new Object[]{"idee", "txidd", "chr4", 49, 342, "A", "C", "SYNO", "SYNO", "234A>C", "CLN", .1, .2, .3, .4};
         assertArrayEquals(expected, actual);
     }
 

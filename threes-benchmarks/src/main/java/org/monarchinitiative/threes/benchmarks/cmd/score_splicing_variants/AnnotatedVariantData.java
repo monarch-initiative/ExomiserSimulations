@@ -7,7 +7,7 @@ import java.util.Objects;
 
 class AnnotatedVariantData {
 
-    private static final List<String> SCORER_NAMES = List.of("canonical_donor", "cryptic_donor", "canonical_acceptor", "cryptic_acceptor");
+    static final List<String> SCORER_NAMES = List.of("canonical_donor", "cryptic_donor", "canonical_acceptor", "cryptic_acceptor");
 
     private final RawVariantData rawVariantData;
     private final SplicingPathogenicityData splicingPathogenicityData;
@@ -30,7 +30,7 @@ class AnnotatedVariantData {
     }
 
     Object[] meltToRecord() {
-        Object[] record = new Object[14];
+        Object[] record = new Object[15];
         record[0] = rawVariantData.getVariantId();
         record[1] = rawVariantData.getTxId();
         record[2] = rawVariantData.getContig();
@@ -38,13 +38,14 @@ class AnnotatedVariantData {
         record[4] = rawVariantData.getEnd();
         record[5] = rawVariantData.getRef();
         record[6] = rawVariantData.getAlt();
-        record[7] = rawVariantData.getEffects();
-        record[8] = rawVariantData.getcChange();
-        record[9] = rawVariantData.getVariantSource();
-        record[10] = splicingPathogenicityData.getOrDefault(SCORER_NAMES.get(0), Double.NaN);
-        record[11] = splicingPathogenicityData.getOrDefault(SCORER_NAMES.get(1), Double.NaN);
-        record[12] = splicingPathogenicityData.getOrDefault(SCORER_NAMES.get(2), Double.NaN);
-        record[13] = splicingPathogenicityData.getOrDefault(SCORER_NAMES.get(3), Double.NaN);
+        record[7] = rawVariantData.getHighestEffect();
+        record[8] = rawVariantData.getEffects();
+        record[9] = rawVariantData.getcChange();
+        record[10] = rawVariantData.getVariantSource();
+        record[11] = splicingPathogenicityData.getOrDefault(SCORER_NAMES.get(0), Double.NaN);
+        record[12] = splicingPathogenicityData.getOrDefault(SCORER_NAMES.get(1), Double.NaN);
+        record[13] = splicingPathogenicityData.getOrDefault(SCORER_NAMES.get(2), Double.NaN);
+        record[14] = splicingPathogenicityData.getOrDefault(SCORER_NAMES.get(3), Double.NaN);
 
         return record;
     }

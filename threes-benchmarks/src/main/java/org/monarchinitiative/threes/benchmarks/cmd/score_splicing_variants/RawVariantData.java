@@ -11,6 +11,7 @@ class RawVariantData {
     private final int end;
     private final String ref;
     private final String alt;
+    private final String highestEffect;
     private final String effects;
     private final String cChange;
     private final String variantSource;
@@ -23,6 +24,7 @@ class RawVariantData {
         end = builder.end;
         ref = builder.ref;
         alt = builder.alt;
+        highestEffect = builder.highestEffect;
         effects = builder.effects;
         cChange = builder.cChange;
         variantSource = builder.variantSource;
@@ -30,6 +32,10 @@ class RawVariantData {
 
     public static Builder builder() {
         return new Builder();
+    }
+
+    public String getHighestEffect() {
+        return highestEffect;
     }
 
     public String getVariantId() {
@@ -84,6 +90,7 @@ class RawVariantData {
                 Objects.equals(contig, that.contig) &&
                 Objects.equals(ref, that.ref) &&
                 Objects.equals(alt, that.alt) &&
+                Objects.equals(highestEffect, that.highestEffect) &&
                 Objects.equals(effects, that.effects) &&
                 Objects.equals(cChange, that.cChange) &&
                 Objects.equals(variantSource, that.variantSource);
@@ -91,7 +98,7 @@ class RawVariantData {
 
     @Override
     public int hashCode() {
-        return Objects.hash(variantId, txId, contig, begin, end, ref, alt, effects, cChange, variantSource);
+        return Objects.hash(variantId, txId, contig, begin, end, ref, alt, highestEffect, effects, cChange, variantSource);
     }
 
     @Override
@@ -104,6 +111,7 @@ class RawVariantData {
                 ", end=" + end +
                 ", ref='" + ref + '\'' +
                 ", alt='" + alt + '\'' +
+                ", highestEffect='" + highestEffect + '\'' +
                 ", effects='" + effects + '\'' +
                 ", cChange='" + cChange + '\'' +
                 ", variantSource='" + variantSource + '\'' +
@@ -118,6 +126,7 @@ class RawVariantData {
         private int end;
         private String ref;
         private String alt;
+        private String highestEffect;
         private String effects;
         private String cChange;
         private String variantSource;
@@ -157,6 +166,11 @@ class RawVariantData {
 
         public Builder alt(String alt) {
             this.alt = alt;
+            return this;
+        }
+
+        public Builder highestEffect(String highestEffect) {
+            this.highestEffect = highestEffect;
             return this;
         }
 
