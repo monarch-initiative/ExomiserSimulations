@@ -15,6 +15,9 @@ class RawVariantData {
     private final String effects;
     private final String cChange;
     private final String variantSource;
+    private final String culprit;
+    private final String clz;
+    private final int offset;
 
     private RawVariantData(Builder builder) {
         variantId = builder.variantId;
@@ -28,10 +31,25 @@ class RawVariantData {
         effects = builder.effects;
         cChange = builder.cChange;
         variantSource = builder.variantSource;
+        culprit = builder.culprit;
+        clz = builder.clz;
+        offset = builder.offset;
     }
 
     public static Builder builder() {
         return new Builder();
+    }
+
+    public String getCulprit() {
+        return culprit;
+    }
+
+    public String getClz() {
+        return clz;
+    }
+
+    public int getOffset() {
+        return offset;
     }
 
     public String getHighestEffect() {
@@ -85,6 +103,7 @@ class RawVariantData {
         RawVariantData that = (RawVariantData) o;
         return begin == that.begin &&
                 end == that.end &&
+                offset == that.offset &&
                 Objects.equals(variantId, that.variantId) &&
                 Objects.equals(txId, that.txId) &&
                 Objects.equals(contig, that.contig) &&
@@ -93,12 +112,14 @@ class RawVariantData {
                 Objects.equals(highestEffect, that.highestEffect) &&
                 Objects.equals(effects, that.effects) &&
                 Objects.equals(cChange, that.cChange) &&
-                Objects.equals(variantSource, that.variantSource);
+                Objects.equals(variantSource, that.variantSource) &&
+                Objects.equals(culprit, that.culprit) &&
+                Objects.equals(clz, that.clz);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(variantId, txId, contig, begin, end, ref, alt, highestEffect, effects, cChange, variantSource);
+        return Objects.hash(variantId, txId, contig, begin, end, ref, alt, highestEffect, effects, cChange, variantSource, culprit, clz, offset);
     }
 
     @Override
@@ -115,6 +136,9 @@ class RawVariantData {
                 ", effects='" + effects + '\'' +
                 ", cChange='" + cChange + '\'' +
                 ", variantSource='" + variantSource + '\'' +
+                ", culprit='" + culprit + '\'' +
+                ", clz='" + clz + '\'' +
+                ", offset=" + offset +
                 '}';
     }
 
@@ -130,6 +154,9 @@ class RawVariantData {
         private String effects;
         private String cChange;
         private String variantSource;
+        private String culprit;
+        private String clz;
+        private int offset;
 
         private Builder() {
         }
@@ -186,6 +213,21 @@ class RawVariantData {
 
         public Builder variantSource(String variantSource) {
             this.variantSource = variantSource;
+            return this;
+        }
+
+        public Builder culprit(String culprit) {
+            this.culprit = culprit;
+            return this;
+        }
+
+        public Builder clz(String clz) {
+            this.clz = clz;
+            return this;
+        }
+
+        public Builder offset(int offset) {
+            this.offset = offset;
             return this;
         }
 

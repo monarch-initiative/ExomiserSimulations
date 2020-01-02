@@ -27,6 +27,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
@@ -54,6 +55,12 @@ public class ScoreSplicingVariantsCommand extends Command {
                 .setDefault("cmd", "score-splicing-variants")
                 .help("score splicing variants from CSV file");
 
+        subparser.addArgument("-t", "--input-type")
+                .type(String.class)
+                .choices(List.of("default", "overall"))
+                .setDefault("default")
+                .help("we have 2 input types which have different columns, which one are we getting now?");
+
         subparser.addArgument("input")
                 .help("path to CSV file with one variant per line");
 
@@ -61,20 +68,94 @@ public class ScoreSplicingVariantsCommand extends Command {
                 .help("where to write the output file");
     }
 
-    private static Function<CSVRecord, RawVariantData> toRawVariantData() {
-        return record -> RawVariantData.builder()
-                .variantId(record.get("VARIANT_ID"))
-                .txId(record.get("TX_ID"))
-                .contig(record.get("CONTIG"))
-                .begin(Integer.parseInt(record.get("BEGIN")))
-                .end(Integer.parseInt(record.get("END")))
-                .ref(record.get("REF"))
-                .alt(record.get("ALT"))
-                .highestEffect(record.get("HIGHEST_EFFECT"))
-                .effects(record.get("EFFECTS"))
-                .cChange(record.get("C_CHANGE"))
-                .variantSource(record.get("VARIANT_SOURCE"))
-                .build();
+    /**
+     * Get decoder function for given `inputType`.
+     *
+     * @param inputType String with input type
+     * @return {@link Function} for decoding CSV line into raw variant data
+     */
+    private static Function<CSVRecord, RawVariantData> parseInputType(String inputType) {
+        switch (inputType) {
+            case "default":
+                return record -> RawVariantData.builder()
+                        .variantId(record.get("VARIANT_ID"))
+                        .txId(record.get("TX_ID"))
+                        .contig(record.get("CONTIG"))
+                        .begin(Integer.parseInt(record.get("BEGIN")))
+                        .end(Integer.parseInt(record.get("END")))
+                        .ref(record.get("REF"))
+                        .alt(record.get("ALT"))
+                        .highestEffect(record.get("HIGHEST_EFFECT"))
+                        .effects(record.get("EFFECTS"))
+                        .cChange(record.get("C_CHANGE"))
+                        .variantSource(record.get("VARIANT_SOURCE"))
+                        .build();
+            case "overall":
+                return record -> RawVariantData.builder()
+                        .variantId(record.get("variant_id"))
+                        .contig(record.get("contig"))
+                        .begin(Integer.parseInt(record.get("begin")))
+                        .end(Integer.parseInt(record.get("end")))
+                        .ref(record.get("ref"))
+                        .alt(record.get("alt"))
+                        .txId(record.get("tx_id"))
+                        .culprit(record.get("culprit"))
+                        .variantSource(record.get("source"))
+                        .clz(record.get("clz"))
+                        .offset(Integer.parseInt(record.get("offset")))
+                        .build();
+            default:
+                LOGGER.warn("Unknown input type `{}`", inputType);
+                throw new RuntimeException(String.format("Unknown input type `%s`", inputType));
+        }
+    }
+
+    private static Consumer<AnnotatedVariantData> writeOutVariant(CSVPrinter printer, String inputType) {
+        switch (inputType) {
+            case "default":
+                return data -> {
+                    // here the header looks like:
+                    // variant_id,tx_id,contig,begin,end,
+                    // ref,alt,highest_effect,effects,
+                    // c_change,source,
+                    // canonical_donor,cryptic_donor,
+                    // canonical_acceptor,cryptic_acceptor
+                    try {
+                        final RawVariantData rvd = data.getRawVariantData();
+                        final SplicingPathogenicityData spd = data.getSplicingPathogenicityData();
+                        printer.printRecord(rvd.getVariantId(), rvd.getTxId(), rvd.getContig(), rvd.getBegin(), rvd.getEnd(),
+                                rvd.getRef(), rvd.getAlt(), rvd.getHighestEffect(), String.join(",", rvd.getEffects()),
+                                rvd.getcChange(), rvd.getVariantSource(),
+                                spd.getOrDefault("canonical_donor", Double.NaN), spd.getOrDefault("cryptic_donor", Double.NaN),
+                                spd.getOrDefault("canonical_acceptor", Double.NaN), spd.getOrDefault("cryptic_acceptor", Double.NaN));
+                    } catch (IOException e) {
+                        LOGGER.warn("Error writing record `{}`", data);
+                    }
+                };
+            case "overall":
+                // here the header looks like:
+                // variant_id,contig,begin,end,
+                // ref,alt,tx_id,
+                // culprit,source,clz,offset,
+                // canonical_donor,cryptic_donor,
+                // canonical_acceptor,cryptic_acceptor
+                return data -> {
+                    try {
+                        final RawVariantData rvd = data.getRawVariantData();
+                        final SplicingPathogenicityData spd = data.getSplicingPathogenicityData();
+                        printer.printRecord(rvd.getVariantId(), rvd.getContig(), rvd.getBegin(), rvd.getEnd(),
+                                rvd.getRef(), rvd.getAlt(), rvd.getTxId(),
+                                rvd.getCulprit(), rvd.getVariantSource(), rvd.getClz(), rvd.getOffset(),
+                                spd.getOrDefault("canonical_donor", Double.NaN), spd.getOrDefault("cryptic_donor", Double.NaN),
+                                spd.getOrDefault("canonical_acceptor", Double.NaN), spd.getOrDefault("cryptic_acceptor", Double.NaN));
+                    } catch (IOException e) {
+                        LOGGER.warn("Error writing record `{}`", data);
+                    }
+                };
+            default:
+                LOGGER.warn("Unknown input type `{}`", inputType);
+                throw new RuntimeException(String.format("Unknown input type `%s`", inputType));
+        }
     }
 
     @Override
@@ -83,18 +164,22 @@ public class ScoreSplicingVariantsCommand extends Command {
         // 0 - parse CLI args
         final Path input = Paths.get(namespace.getString("input"));
         final Path output = Paths.get(namespace.getString("output"));
-
+        final String inputType = namespace.getString("input_type");
 
         // 1 - decode variants from the input file
         List<RawVariantData> variants;
         List<String> headerNames;
+        Function<CSVRecord, RawVariantData> decoder = parseInputType(inputType);
+
         try (final BufferedReader reader = Files.newBufferedReader(input);
-             final CSVParser csvParser = CSVFormat.DEFAULT.withFirstRecordAsHeader().parse(reader)) {
+             final CSVParser csvParser = CSVFormat.DEFAULT
+                     .withFirstRecordAsHeader()
+                     .parse(reader)) {
             LOGGER.info("Reading variants");
             headerNames = new ArrayList<>(csvParser.getHeaderNames());
             // VARIANT_ID	TX_ID	CONTIG	BEGIN	END	REF	ALT	HIGHEST_EFFECT  EFFECTS	C_CHANGE	VARIANT_SOURCE
             variants = StreamSupport.stream(csvParser.spliterator(), false)
-                    .map(toRawVariantData())
+                    .map(decoder)
                     .collect(Collectors.toList());
             LOGGER.info("Read {} variants", variants.size());
         } catch (IOException e) {
@@ -115,15 +200,7 @@ public class ScoreSplicingVariantsCommand extends Command {
         LOGGER.info("Writing {} results into `{}`", annotated.size(), output);
         try (final BufferedWriter writer = Files.newBufferedWriter(output);
              final CSVPrinter csvPrinter = CSVFormat.DEFAULT.withHeader(header).print(writer)) {
-            annotated.stream()
-                    .map(AnnotatedVariantData::meltToRecord)
-                    .forEach(values -> {
-                        try {
-                            csvPrinter.printRecord(values);
-                        } catch (IOException e) {
-                            LOGGER.warn("Error writing record `{}`", values);
-                        }
-                    });
+            annotated.forEach(writeOutVariant(csvPrinter, inputType));
         } catch (IOException e) {
             throw new CommandException(e);
         }
