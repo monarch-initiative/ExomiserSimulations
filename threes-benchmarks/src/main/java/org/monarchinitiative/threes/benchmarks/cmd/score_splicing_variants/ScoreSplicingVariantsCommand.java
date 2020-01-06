@@ -99,6 +99,7 @@ public class ScoreSplicingVariantsCommand extends Command {
                         .ref(record.get("ref"))
                         .alt(record.get("alt"))
                         .txId(record.get("tx_id"))
+                        .symbol(record.get("symbol"))
                         .culprit(record.get("culprit"))
                         .variantSource(record.get("source"))
                         .clz(record.get("clz"))
@@ -135,7 +136,7 @@ public class ScoreSplicingVariantsCommand extends Command {
             case "overall":
                 // here the header looks like:
                 // variant_id,contig,begin,end,
-                // ref,alt,tx_id,
+                // ref,alt,tx_id,symbol,
                 // culprit,source,clz,offset,
                 // canonical_donor,cryptic_donor,
                 // canonical_acceptor,cryptic_acceptor
@@ -144,7 +145,7 @@ public class ScoreSplicingVariantsCommand extends Command {
                         final RawVariantData rvd = data.getRawVariantData();
                         final SplicingPathogenicityData spd = data.getSplicingPathogenicityData();
                         printer.printRecord(rvd.getVariantId(), rvd.getContig(), rvd.getBegin(), rvd.getEnd(),
-                                rvd.getRef(), rvd.getAlt(), rvd.getTxId(),
+                                rvd.getRef(), rvd.getAlt(), rvd.getTxId(), rvd.getSymbol(),
                                 rvd.getCulprit(), rvd.getVariantSource(), rvd.getClz(), rvd.getOffset(),
                                 spd.getOrDefault("canonical_donor", Double.NaN), spd.getOrDefault("cryptic_donor", Double.NaN),
                                 spd.getOrDefault("canonical_acceptor", Double.NaN), spd.getOrDefault("cryptic_acceptor", Double.NaN));
@@ -246,7 +247,6 @@ public class ScoreSplicingVariantsCommand extends Command {
                     })
                     .collect(Collectors.toSet());
         };
-
     }
 
 }

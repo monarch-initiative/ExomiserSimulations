@@ -6,6 +6,7 @@ class RawVariantData {
 
     private final String variantId;
     private final String txId;
+    private final String symbol;
     private final String contig;
     private final int begin;
     private final int end;
@@ -18,10 +19,10 @@ class RawVariantData {
     private final String culprit;
     private final String clz;
     private final int offset;
-
     private RawVariantData(Builder builder) {
         variantId = builder.variantId;
         txId = builder.txId;
+        symbol = builder.symbol;
         contig = builder.contig;
         begin = builder.begin;
         end = builder.end;
@@ -62,6 +63,10 @@ class RawVariantData {
 
     public String getTxId() {
         return txId;
+    }
+
+    public String getSymbol() {
+        return symbol;
     }
 
     public String getContig() {
@@ -106,6 +111,7 @@ class RawVariantData {
                 offset == that.offset &&
                 Objects.equals(variantId, that.variantId) &&
                 Objects.equals(txId, that.txId) &&
+                Objects.equals(symbol, that.symbol) &&
                 Objects.equals(contig, that.contig) &&
                 Objects.equals(ref, that.ref) &&
                 Objects.equals(alt, that.alt) &&
@@ -119,7 +125,7 @@ class RawVariantData {
 
     @Override
     public int hashCode() {
-        return Objects.hash(variantId, txId, contig, begin, end, ref, alt, highestEffect, effects, cChange, variantSource, culprit, clz, offset);
+        return Objects.hash(variantId, txId, symbol, contig, begin, end, ref, alt, highestEffect, effects, cChange, variantSource, culprit, clz, offset);
     }
 
     @Override
@@ -127,6 +133,7 @@ class RawVariantData {
         return "RawVariantData{" +
                 "variantId='" + variantId + '\'' +
                 ", txId='" + txId + '\'' +
+                ", symbol='" + symbol + '\'' +
                 ", contig='" + contig + '\'' +
                 ", begin=" + begin +
                 ", end=" + end +
@@ -145,6 +152,7 @@ class RawVariantData {
     public static final class Builder {
         private String variantId;
         private String txId;
+        private String symbol;
         private String contig;
         private int begin;
         private int end;
@@ -168,6 +176,11 @@ class RawVariantData {
 
         public Builder txId(String txId) {
             this.txId = txId;
+            return this;
+        }
+
+        public Builder symbol(String symbol) {
+            this.symbol = symbol;
             return this;
         }
 
