@@ -6,7 +6,6 @@ class RawVariantData {
 
     private final String variantId;
     private final String txId;
-    private final String symbol;
     private final String contig;
     private final int begin;
     private final int end;
@@ -19,10 +18,13 @@ class RawVariantData {
     private final String culprit;
     private final String clz;
     private final int offset;
+    private final String symbol;
+    private final int donorOffset;
+    private final int acceptorOffset;
+
     private RawVariantData(Builder builder) {
         variantId = builder.variantId;
         txId = builder.txId;
-        symbol = builder.symbol;
         contig = builder.contig;
         begin = builder.begin;
         end = builder.end;
@@ -34,11 +36,22 @@ class RawVariantData {
         variantSource = builder.variantSource;
         culprit = builder.culprit;
         clz = builder.clz;
+        symbol = builder.symbol;
         offset = builder.offset;
+        donorOffset = builder.donorOffset;
+        acceptorOffset = builder.acceptorOffset;
     }
 
     public static Builder builder() {
         return new Builder();
+    }
+
+    public int getDonorOffset() {
+        return donorOffset;
+    }
+
+    public int getAcceptorOffset() {
+        return acceptorOffset;
     }
 
     public String getCulprit() {
@@ -109,9 +122,10 @@ class RawVariantData {
         return begin == that.begin &&
                 end == that.end &&
                 offset == that.offset &&
+                donorOffset == that.donorOffset &&
+                acceptorOffset == that.acceptorOffset &&
                 Objects.equals(variantId, that.variantId) &&
                 Objects.equals(txId, that.txId) &&
-                Objects.equals(symbol, that.symbol) &&
                 Objects.equals(contig, that.contig) &&
                 Objects.equals(ref, that.ref) &&
                 Objects.equals(alt, that.alt) &&
@@ -120,12 +134,13 @@ class RawVariantData {
                 Objects.equals(cChange, that.cChange) &&
                 Objects.equals(variantSource, that.variantSource) &&
                 Objects.equals(culprit, that.culprit) &&
-                Objects.equals(clz, that.clz);
+                Objects.equals(clz, that.clz) &&
+                Objects.equals(symbol, that.symbol);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(variantId, txId, symbol, contig, begin, end, ref, alt, highestEffect, effects, cChange, variantSource, culprit, clz, offset);
+        return Objects.hash(variantId, txId, contig, begin, end, ref, alt, highestEffect, effects, cChange, variantSource, culprit, clz, offset, symbol, donorOffset, acceptorOffset);
     }
 
     @Override
@@ -133,7 +148,6 @@ class RawVariantData {
         return "RawVariantData{" +
                 "variantId='" + variantId + '\'' +
                 ", txId='" + txId + '\'' +
-                ", symbol='" + symbol + '\'' +
                 ", contig='" + contig + '\'' +
                 ", begin=" + begin +
                 ", end=" + end +
@@ -146,6 +160,9 @@ class RawVariantData {
                 ", culprit='" + culprit + '\'' +
                 ", clz='" + clz + '\'' +
                 ", offset=" + offset +
+                ", symbol='" + symbol + '\'' +
+                ", donorOffset=" + donorOffset +
+                ", acceptorOffset=" + acceptorOffset +
                 '}';
     }
 
@@ -165,6 +182,8 @@ class RawVariantData {
         private String culprit;
         private String clz;
         private int offset;
+        private int donorOffset;
+        private int acceptorOffset;
 
         private Builder() {
         }
@@ -241,6 +260,16 @@ class RawVariantData {
 
         public Builder offset(int offset) {
             this.offset = offset;
+            return this;
+        }
+
+        public Builder donorOffset(int offset) {
+            this.donorOffset = offset;
+            return this;
+        }
+
+        public Builder acceptorOffset(int offset) {
+            this.acceptorOffset = offset;
             return this;
         }
 

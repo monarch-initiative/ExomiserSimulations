@@ -99,11 +99,13 @@ public class ScoreSplicingVariantsCommand extends Command {
                         .ref(record.get("ref"))
                         .alt(record.get("alt"))
                         .txId(record.get("tx_id"))
-                        .symbol(record.get("symbol"))
                         .culprit(record.get("culprit"))
                         .variantSource(record.get("source"))
                         .clz(record.get("clz"))
                         .offset(Integer.parseInt(record.get("offset")))
+                        .symbol(record.get("symbol"))
+                        .donorOffset(Integer.parseInt(record.get("donor_offset")))
+                        .acceptorOffset(Integer.parseInt(record.get("acceptor_offset")))
                         .build();
             default:
                 LOGGER.warn("Unknown input type `{}`", inputType);
@@ -136,8 +138,9 @@ public class ScoreSplicingVariantsCommand extends Command {
             case "overall":
                 // here the header looks like:
                 // variant_id,contig,begin,end,
-                // ref,alt,tx_id,symbol,
+                // ref,alt,tx_id,
                 // culprit,source,clz,offset,
+                // symbol,donor_offset,acceptor_offset,
                 // canonical_donor,cryptic_donor,
                 // canonical_acceptor,cryptic_acceptor
                 return data -> {
@@ -145,8 +148,9 @@ public class ScoreSplicingVariantsCommand extends Command {
                         final RawVariantData rvd = data.getRawVariantData();
                         final SplicingPathogenicityData spd = data.getSplicingPathogenicityData();
                         printer.printRecord(rvd.getVariantId(), rvd.getContig(), rvd.getBegin(), rvd.getEnd(),
-                                rvd.getRef(), rvd.getAlt(), rvd.getTxId(), rvd.getSymbol(),
+                                rvd.getRef(), rvd.getAlt(), rvd.getTxId(),
                                 rvd.getCulprit(), rvd.getVariantSource(), rvd.getClz(), rvd.getOffset(),
+                                rvd.getSymbol(), rvd.getDonorOffset(), rvd.getAcceptorOffset(),
                                 spd.getOrDefault("canonical_donor", Double.NaN), spd.getOrDefault("cryptic_donor", Double.NaN),
                                 spd.getOrDefault("canonical_acceptor", Double.NaN), spd.getOrDefault("cryptic_acceptor", Double.NaN));
                     } catch (IOException e) {
@@ -177,8 +181,8 @@ public class ScoreSplicingVariantsCommand extends Command {
                      .withFirstRecordAsHeader()
                      .parse(reader)) {
             LOGGER.info("Reading variants");
+            // header names depend on `input_type`
             headerNames = new ArrayList<>(csvParser.getHeaderNames());
-            // VARIANT_ID	TX_ID	CONTIG	BEGIN	END	REF	ALT	HIGHEST_EFFECT  EFFECTS	C_CHANGE	VARIANT_SOURCE
             variants = StreamSupport.stream(csvParser.spliterator(), false)
                     .map(decoder)
                     .collect(Collectors.toList());
